@@ -15,7 +15,7 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0,
   dateStrings: true, // trả DATE dạng 'YYYY-MM-DD' thay vì object Date
-  charset: 'UTF8MB4_UNICODE_CI',
+  charset: 'utf8mb4',
 });
 
 // Kiểm tra kết nối khi khởi động server
