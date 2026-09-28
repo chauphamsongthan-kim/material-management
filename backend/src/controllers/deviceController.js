@@ -173,6 +173,7 @@ async function deleteDevice(req, res) {
   }
 }
 
+
 // GET /api/devices/search?q= -> Tìm kiếm thiết bị trên toàn bộ 6 ban
 async function searchDevices(req, res) {
   try {
@@ -183,8 +184,9 @@ async function searchDevices(req, res) {
        FROM devices
        JOIN departments ON devices.department_id = departments.department_id
        WHERE devices.device_name LIKE ?
+          OR devices.device_type LIKE ?
        ORDER BY devices.device_name ASC`,
-      [`%${q}%`]
+      [`%${q}%`, `%${q}%`]
     );
 
     return res.json({ success: true, data: rows });

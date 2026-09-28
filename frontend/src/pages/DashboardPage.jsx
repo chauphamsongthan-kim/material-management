@@ -188,7 +188,7 @@ function DashboardPage() {
           </div>
 
           {/* Search */}
-          <div className="relative hidden max-w-xl flex-1 md:block">
+          <div className="relative block w-full min-w-0 max-w-xl flex-1">
             <div className="relative">
 
               <Search
