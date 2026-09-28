@@ -164,10 +164,10 @@ function DashboardPage() {
 
       {/* HEADER */}
       <header className="border-b border-amber-700/40 bg-[linear-gradient(to_bottom,#fdc82f,#f0b10e)] shadow-md">
-        <div className="flex w-full items-center justify-between gap-6 px-6 py-4">
+        <div className="flex w-full flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:px-6">
 
           {/* Logo + Tên hệ thống */}
-          <div className="flex shrink-0 items-center gap-3">
+          <div className="flex w-full min-w-0 shrink-0 items-center gap-3 lg:w-auto">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white p-1.5 shadow-md ring-2 ring-white/80">
               <img
                 src="/logo-chua-hoi-duc.png"
@@ -177,7 +177,7 @@ function DashboardPage() {
             </div>
 
             <div>
-              <h1 className="text-2xl font-bold text-[#7c3a0a]">
+              <h1 className="text-xl font-bold text-[#7c3a0a] sm:text-2xl">
                 Hệ thống quản lý thiết bị và vật tư
               </h1>
 
@@ -256,7 +256,7 @@ function DashboardPage() {
           </div>
 
           {/* USER + ACTIONS */}
-          <div className="flex shrink-0 items-center gap-3">
+          <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 lg:w-auto lg:flex-nowrap lg:gap-3">
 
             {/* Thông tin tài khoản */}
             <div className="mr-2 text-right">
@@ -320,7 +320,7 @@ function DashboardPage() {
       </header>
 
       {/* MAIN */}
-      <main className="relative z-10 mx-auto max-w-7xl px-6 py-10">
+      <main className="relative z-10 mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
 
         {/* Greeting */}
         <div className="mb-8">
