@@ -29,12 +29,11 @@ function LoginPage() {
 
       const result = await login(username, password);
 
-    if (result.success) {
+      if (result.success) {
         loginUser(result.data.user, result.data.token);
 
-         navigate('/dashboard');
-        }
- else {
+        navigate('/dashboard');
+      } else {
         setError(result.message || 'Đăng nhập thất bại.');
       }
     } catch (err) {
@@ -48,63 +47,103 @@ function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
+    <div className="relative min-h-screen overflow-hidden bg-[#171717]">
 
-        <h1 className="mb-2 text-center text-2xl font-bold text-gray-800">
-          Hệ thống quản lý thiết bị
-        </h1>
+{/* White background image */}
+<div
+  className="absolute inset-0 scale-110 bg-cover bg-center bg-no-repeat blur-md"
+  style={{
+    backgroundImage: "url('/background-white.webp')",
+  }}
+/>
 
-        <p className="mb-6 text-center text-sm text-gray-500">
-          Đăng nhập để tiếp tục
-        </p>
+{/* Blurred logo */}
+<div
+  className="absolute inset-0 bg-[length:70%_auto] bg-center bg-no-repeat blur-lg"
+  style={{
+    backgroundImage: "url('/logo-chua-hoi-duc.png')",
+  }}
+/>
 
-        {error && (
-          <div className="mb-4 rounded-lg bg-red-100 px-4 py-3 text-sm text-red-600">
-            {error}
-          </div>
-        )}
+{/* Dark overlay */}
+<div className="absolute inset-0 bg-black/55" />
 
-        <form onSubmit={handleSubmit}>
+      {/* Login content */}
+      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-8">
 
-          <div className="mb-4">
-            <label className="mb-1 block font-medium text-gray-700">
-              Tên đăng nhập
-            </label>
+        <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 shadow-2xl backdrop-blur-sm sm:p-10">
 
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 outline-none focus:border-blue-500"
-              placeholder="Nhập tên đăng nhập"
-            />
-          </div>
+          {/* Header */}
+          <div className="mb-8 text-center">
 
-          <div className="mb-6">
-            <label className="mb-1 block font-medium text-gray-700">
-              Mật khẩu
-            </label>
+            <h1 className="text-3xl font-bold tracking-tight text-gray-800 sm:text-4xl">
+              Quản lý thiết bị
+            </h1>
 
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 outline-none focus:border-blue-500"
-              placeholder="Nhập mật khẩu"
-            />
+            <p className="mt-3 text-lg text-gray-500">
+              Chùa Hội Đức
+            </p>
+
+            <div className="mx-auto mt-5 h-1 w-20 rounded-full bg-amber-500" />
+
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-blue-600 py-2 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-          </button>
+          {/* Error */}
+          {error && (
+            <div className="mb-5 rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              {error}
+            </div>
+          )}
 
-        </form>
+          {/* Form */}
+          <form onSubmit={handleSubmit}>
 
+            {/* Username */}
+            <div className="mb-5">
+
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Tên đăng nhập
+              </label>
+
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                placeholder="Nhập tên đăng nhập"
+              />
+
+            </div>
+
+            {/* Password */}
+            <div className="mb-7">
+
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Mật khẩu
+              </label>
+
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                placeholder="Nhập mật khẩu"
+              />
+
+            </div>
+
+            {/* Login button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-lg bg-amber-500 py-3 font-bold text-white shadow-lg shadow-amber-500/20 transition hover:bg-amber-600 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+            </button>
+
+          </form>
+
+        </div>
       </div>
     </div>
   );

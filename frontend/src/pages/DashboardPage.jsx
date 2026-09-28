@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Search, LogOut, Package } from 'lucide-react';
+import {
+  Search,
+  LogOut,
+  KeyRound,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../context/AuthContext';
@@ -15,33 +19,35 @@ import DepartmentCard from '../components/departments/DepartmentCard';
 import DeviceTable from '../components/devices/DeviceTable';
 
 import AddDeviceModal from '../components/devices/AddDeviceModal';
+import ChangePasswordModal from '../components/common/ChangePasswordModal';
 
 function DashboardPage() {
   const { user, logoutUser } = useAuth();
   const navigate = useNavigate();
 
-const [departments, setDepartments] = useState([]);
-const [loading, setLoading] = useState(true);
-const [error, setError] = useState('');
+  const [departments, setDepartments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-const [search, setSearch] = useState('');
+  const [search, setSearch] = useState('');
 
-const [searchResults, setSearchResults] = useState([]);
-const [searching, setSearching] = useState(false);
-const [showSearchResults, setShowSearchResults] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
 
-// Ban đang được chọn
-const [selectedDepartment, setSelectedDepartment] = useState(null);
+  // Ban đang được chọn
+  const [selectedDepartment, setSelectedDepartment] = useState(null);
 
-// Danh sách thiết bị của Ban đang chọn
-const [devices, setDevices] = useState([]);
+  // Danh sách thiết bị của Ban đang chọn
+  const [devices, setDevices] = useState([]);
 
-// Trạng thái tải thiết bị
-const [loadingDevices, setLoadingDevices] = useState(false);
+  // Trạng thái tải thiết bị
+  const [loadingDevices, setLoadingDevices] = useState(false);
 
+  const [showAddDeviceModal, setShowAddDeviceModal] = useState(false);
 
-const [showAddDeviceModal, setShowAddDeviceModal] =
-  useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] =
+    useState(false);
 
   useEffect(() => {
     loadDepartments();
@@ -56,12 +62,14 @@ const [showAddDeviceModal, setShowAddDeviceModal] =
       if (result.success) {
         setDepartments(result.data);
       } else {
-        setError(result.message || 'Không thể tải danh sách Ban.');
+        setError(
+          result.message || 'Không thể tải danh sách Ban.'
+        );
       }
     } catch (err) {
       setError(
         err.response?.data?.message ||
-        'Không thể kết nối đến máy chủ.'
+          'Không thể kết nối đến máy chủ.'
       );
     } finally {
       setLoading(false);
@@ -69,108 +77,133 @@ const [showAddDeviceModal, setShowAddDeviceModal] =
   }
 
   const handleSearch = async (keyword) => {
-  setSearch(keyword);
+    setSearch(keyword);
 
-  if (!keyword.trim()) {
-    setSearchResults([]);
-    setShowSearchResults(false);
-    return;
-  }
-
-  try {
-    setSearching(true);
-    setShowSearchResults(true);
-
-    const result = await searchDevices(keyword.trim());
-
-    if (result.success) {
-      setSearchResults(result.data || []);
-    } else {
+    if (!keyword.trim()) {
       setSearchResults([]);
+      setShowSearchResults(false);
+      return;
     }
-  } catch (err) {
-    console.error('Lỗi tìm kiếm thiết bị:', err);
-    setSearchResults([]);
-  } finally {
-    setSearching(false);
-  }
-};
+
+    try {
+      setSearching(true);
+      setShowSearchResults(true);
+
+      const result = await searchDevices(keyword.trim());
+
+      if (result.success) {
+        setSearchResults(result.data || []);
+      } else {
+        setSearchResults([]);
+      }
+    } catch (err) {
+      console.error('Lỗi tìm kiếm thiết bị:', err);
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
 
   const handleLogout = () => {
     logoutUser();
     navigate('/login');
   };
 
-const handleDepartmentClick = async (department) => {
-  try {
-    setSelectedDepartment(department);
-    setDevices([]);
-    setLoadingDevices(true);
-    setError('');
+  const handleDepartmentClick = async (department) => {
+    try {
+      setSelectedDepartment(department);
+      setDevices([]);
+      setLoadingDevices(true);
+      setError('');
 
-    const result = await getDevicesByDepartment(
-      department.department_id
-    );
-
-    if (result.success) {
-      setDevices(result.data || []);
-    } else {
-      setError(
-        result.message || 'Không thể tải danh sách thiết bị.'
+      const result = await getDevicesByDepartment(
+        department.department_id
       );
-    }
-  } catch (err) {
-    console.error('Lỗi tải thiết bị:', err);
 
-    setError(
-      err.response?.data?.message ||
-      'Không thể tải danh sách thiết bị.'
-    );
-  } finally {
-    setLoadingDevices(false);
-  }
-};
+      if (result.success) {
+        setDevices(result.data || []);
+      } else {
+        setError(
+          result.message ||
+            'Không thể tải danh sách thiết bị.'
+        );
+      }
+    } catch (err) {
+      console.error('Lỗi tải thiết bị:', err);
+
+      setError(
+        err.response?.data?.message ||
+          'Không thể tải danh sách thiết bị.'
+      );
+    } finally {
+      setLoadingDevices(false);
+    }
+  };
 
   const filteredDepartments = departments;
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="relative min-h-screen overflow-hidden">
+
+      {/* DASHBOARD BACKGROUND */}
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+
+        {/* Nền vàng thuần */}
+        <div className="absolute inset-0 bg-[#FFFF00]/5" />
+
+        {/* Vùng vàng mờ */}
+        <div className="absolute -left-32 -top-32 h-[550px] w-[550px] rounded-full bg-[#FFFF00]/25 blur-3xl" />
+
+        <div className="absolute -bottom-40 -right-40 h-[650px] w-[650px] rounded-full bg-[#FFFF00]/20 blur-3xl" />
+
+        <div className="absolute left-1/2 top-1/2 h-[600px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#FFFF00]/15 blur-3xl" />
+
+      </div>
 
       {/* HEADER */}
-      <header className="bg-white shadow-sm">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-4">
 
-          {/* Logo + Tên */}
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-white">
-              <Package size={22} />
+      {/* HEADER */}
+      <header className="border-b border-amber-700/40 bg-[linear-gradient(to_bottom,#fdc82f,#f0b10e)] shadow-md">
+        <div className="flex w-full items-center justify-between gap-6 px-6 py-4">
+
+          {/* Logo + Tên hệ thống */}
+          <div className="flex shrink-0 items-center gap-3">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white p-1.5 shadow-md ring-2 ring-white/80">
+              <img
+                src="/logo-chua-hoi-duc.png"
+                alt="Logo Chùa Hội Đức"
+                className="h-full w-full rounded-full object-contain"
+              />
             </div>
 
             <div>
-              <h1 className="font-bold text-gray-800">
-                Hệ thống quản lý thiết bị
+              <h1 className="text-2xl font-bold text-[#7c3a0a]">
+                Hệ thống quản lý thiết bị và vật tư
               </h1>
 
-              <p className="text-xs text-gray-500">
-                Quản lý thiết bị và vật tư
+              <p className="text-sm text-[#8a4b0f]">
+                Chùa Hội Đức
               </p>
             </div>
           </div>
 
           {/* Search */}
-          <div className="relative hidden flex-1 max-w-md md:block">
+          <div className="relative hidden max-w-xl flex-1 md:block">
             <div className="relative">
+
               <Search
                 size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a16207]"
               />
 
               <input
                 type="text"
                 value={search}
-                onChange={(e) => handleSearch(e.target.value)}
+                onChange={(e) =>
+                  handleSearch(e.target.value)
+                }
                 placeholder="Tìm kiếm thiết bị..."
-                className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 outline-none focus:border-blue-500"
+                className="w-full rounded-lg border border-amber-200 bg-[#fffaf0] py-2.5 pl-10 pr-4 text-[#5c2a06] placeholder:text-[#a16207] outline-none transition focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-200"
               />
             </div>
 
@@ -184,11 +217,12 @@ const handleDepartmentClick = async (department) => {
                   </div>
                 )}
 
-                {!searching && searchResults.length === 0 && (
-                  <div className="p-4 text-center text-sm text-gray-500">
-                    Không tìm thấy thiết bị.
-                  </div>
-                )}
+                {!searching &&
+                  searchResults.length === 0 && (
+                    <div className="p-4 text-center text-sm text-gray-500">
+                      Không tìm thấy thiết bị.
+                    </div>
+                  )}
 
                 {!searching &&
                   searchResults.map((device) => (
@@ -198,7 +232,9 @@ const handleDepartmentClick = async (department) => {
                       onClick={() => {
                         setShowSearchResults(false);
                         setSearch('');
-                        navigate(`/devices/${device.device_id}`);
+                        navigate(
+                          `/devices/${device.device_id}`
+                        );
                       }}
                       className="block w-full border-b border-gray-100 px-4 py-3 text-left transition hover:bg-gray-50"
                     >
@@ -219,22 +255,58 @@ const handleDepartmentClick = async (department) => {
             )}
           </div>
 
-          {/* User */}
-          <div className="flex items-center gap-4">
+          {/* USER + ACTIONS */}
+          <div className="flex shrink-0 items-center gap-3">
 
-            <div className="text-right">
-              <p className="font-medium text-gray-800">
-                {user?.username}
+            {/* Thông tin tài khoản */}
+            <div className="mr-2 text-right">
+              <p className="font-semibold text-[#5c2a06]">
+                {user?.role === 'HEAD'
+                  ? `Trưởng ban ${
+                      user?.department_name?.replace(
+                        /^Ban\s/,
+                        'ban '
+                      ) || ''
+                    }`
+                  : 'Quản trị viên'}
               </p>
 
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-[#7c3a0a]">
                 {user?.role}
               </p>
             </div>
 
+            {/* Quản lý tài khoản - chỉ ADMIN */}
+            {user?.role === 'ADMIN' && (
+              <button
+                type="button"
+                onClick={() => navigate('/accounts')}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+              >
+                Quản lý tài khoản
+              </button>
+            )}
+
+            {/* Đổi mật khẩu */}
             <button
+              type="button"
+              onClick={() =>
+                setShowChangePasswordModal(true)
+              }
+              className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            >
+              <KeyRound size={17} />
+
+              <span className="hidden lg:inline">
+                Đổi mật khẩu
+              </span>
+            </button>
+
+            {/* Đăng xuất */}
+            <button
+              type="button"
               onClick={handleLogout}
-              className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
             >
               <LogOut size={18} />
 
@@ -244,16 +316,16 @@ const handleDepartmentClick = async (department) => {
             </button>
 
           </div>
-
         </div>
       </header>
 
       {/* MAIN */}
-      <main className="mx-auto max-w-7xl px-6 py-10">
+      <main className="relative z-10 mx-auto max-w-7xl px-6 py-10">
 
+        {/* Greeting */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-800">
-            Chào mừng trở lại, {user?.username}
+            Chào mừng trở lại, {user?.full_name}
           </h2>
 
           <p className="mt-2 text-gray-600">
@@ -299,69 +371,91 @@ const handleDepartmentClick = async (department) => {
             </div>
           )}
 
-          {/* DEVICES */}
-{selectedDepartment && (
-  <section className="mt-10">
-    <div className="mb-5 flex items-center justify-between gap-4">
-  <div>
-    <h2 className="text-2xl font-bold text-gray-800">
-      {selectedDepartment.department_name}
-    </h2>
+        {/* DEVICES */}
+        {selectedDepartment && (
+          <section className="mt-10">
 
-    <p className="mt-1 text-gray-500">
-      Danh sách thiết bị
-    </p>
-  </div>
+            <div className="mb-5 flex items-center justify-between gap-4">
 
-    {(user?.role === 'ADMIN' ||
-      user?.department_id === selectedDepartment.department_id) && (
-      <button
-        type="button"
-        onClick={() => setShowAddDeviceModal(true)}
-        className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
-      >
-        + Thêm thiết bị
-      </button>
-    )}
-  </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800">
+                  {selectedDepartment.department_name}
+                </h2>
 
-    {/* Loading thiết bị */}
-    {loadingDevices && (
-      <div className="rounded-lg bg-white p-10 text-center text-gray-500 shadow-sm">
-        Đang tải danh sách thiết bị...
-      </div>
-    )}
+                <p className="mt-1 text-gray-500">
+                  Danh sách thiết bị
+                </p>
+              </div>
 
-    {/* Bảng thiết bị */}
-    {!loadingDevices && (
-      <DeviceTable
-  devices={devices}
-  onDeviceClick={(deviceId) => {
-    navigate(`/devices/${deviceId}`);
-  }}
-/>
-    )}
-  </section>
-)}
+              {(user?.role === 'ADMIN' ||
+                Number(user?.department_id) ===
+                  Number(
+                    selectedDepartment.department_id
+                  )) && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowAddDeviceModal(true)
+                  }
+                  className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
+                >
+                  + Thêm thiết bị
+                </button>
+              )}
 
-    </main>
+            </div>
 
-    {/* ADD DEVICE MODAL */}
-    {showAddDeviceModal && selectedDepartment && (
-      <AddDeviceModal
-        department={selectedDepartment}
-        addDevice={addDevice}
-        onClose={() => setShowAddDeviceModal(false)}
-        onSuccess={async () => {
-          setShowAddDeviceModal(false);
+            {/* Loading thiết bị */}
+            {loadingDevices && (
+              <div className="rounded-lg bg-white p-10 text-center text-gray-500 shadow-sm">
+                Đang tải danh sách thiết bị...
+              </div>
+            )}
 
-          // Tải lại danh sách thiết bị
-          await handleDepartmentClick(selectedDepartment);
-        }}
-      />
-    )}
-  </div>
-);
+            {/* Bảng thiết bị */}
+            {!loadingDevices && (
+              <DeviceTable
+                devices={devices}
+                onDeviceClick={(deviceId) => {
+                  navigate(`/devices/${deviceId}`);
+                }}
+              />
+            )}
+
+          </section>
+        )}
+
+      </main>
+
+      {/* ADD DEVICE MODAL */}
+      {showAddDeviceModal && selectedDepartment && (
+        <AddDeviceModal
+          department={selectedDepartment}
+          addDevice={addDevice}
+          onClose={() =>
+            setShowAddDeviceModal(false)
+          }
+          onSuccess={async () => {
+            setShowAddDeviceModal(false);
+
+            await handleDepartmentClick(
+              selectedDepartment
+            );
+          }}
+        />
+      )}
+
+      {/* CHANGE PASSWORD MODAL */}
+      {showChangePasswordModal && (
+        <ChangePasswordModal
+          onClose={() =>
+            setShowChangePasswordModal(false)
+          }
+        />
+      )}
+
+    </div>
+  );
 }
 
 export default DashboardPage;

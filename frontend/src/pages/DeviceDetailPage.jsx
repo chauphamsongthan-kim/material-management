@@ -29,16 +29,12 @@ import DeleteDeviceModal from '../components/devices/DeleteDeviceModal';
 function DeviceDetailPage() {
   const { deviceId } = useParams();
   const navigate = useNavigate();
-  
+
   const { user } = useAuth();
 
   const [device, setDevice] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  const canManageDevice =
-  user?.role === 'ADMIN' ||
-  user?.department_id === device?.department_id;
 
   const [showBorrowModal, setShowBorrowModal] = useState(false);
   const [showReturnModal, setShowReturnModal] = useState(false);
@@ -49,6 +45,10 @@ function DeviceDetailPage() {
   const [history, setHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [historyError, setHistoryError] = useState('');
+
+  const canManageDevice =
+    user?.role === 'ADMIN' ||
+    Number(user?.department_id) === Number(device?.department_id);
 
   useEffect(() => {
     loadDevice();
@@ -82,30 +82,30 @@ function DeviceDetailPage() {
   }
 
   async function loadHistory() {
-  try {
-    setLoadingHistory(true);
-    setHistoryError('');
+    try {
+      setLoadingHistory(true);
+      setHistoryError('');
 
-    const result = await getDeviceHistory(deviceId);
+      const result = await getDeviceHistory(deviceId);
 
-    if (result.success) {
-      setHistory(result.data || []);
-    } else {
+      if (result.success) {
+        setHistory(result.data || []);
+      } else {
+        setHistoryError(
+          result.message || 'Không thể tải lịch sử mượn/trả.'
+        );
+      }
+    } catch (err) {
+      console.error('Lỗi tải lịch sử:', err);
+
       setHistoryError(
-        result.message || 'Không thể tải lịch sử mượn/trả.'
+        err.response?.data?.message ||
+          'Không thể tải lịch sử mượn/trả.'
       );
+    } finally {
+      setLoadingHistory(false);
     }
-  } catch (err) {
-    console.error('Lỗi tải lịch sử:', err);
-
-    setHistoryError(
-      err.response?.data?.message ||
-        'Không thể tải lịch sử mượn/trả.'
-    );
-  } finally {
-    setLoadingHistory(false);
   }
-}
 
   if (loading) {
     return (
@@ -161,23 +161,28 @@ function DeviceDetailPage() {
           </button>
         </div>
       </header>
-        {/* MAIN */}
-        <main className="mx-auto max-w-4xl px-6 py-8">
-          {/* TITLE */}
-          <div className="mb-8">
-            <p className="text-xl font-bold text-blue-600">
-              CHI TIẾT THIẾT BỊ
-            </p>
 
-            <p className="mt-2 text-base text-gray-500">
-              Thông tin và lịch sử mượn / trả thiết bị
-            </p>
-          </div>
+      {/* MAIN */}
+      <main className="mx-auto max-w-4xl px-6 py-8">
+
+        {/* TITLE */}
+        <div className="mb-8">
+          <p className="text-xl font-bold text-blue-600">
+            CHI TIẾT THIẾT BỊ
+          </p>
+
+          <p className="mt-2 text-base text-gray-500">
+            Thông tin và lịch sử mượn / trả thiết bị
+          </p>
+        </div>
 
         {/* DEVICE INFORMATION */}
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+
+          {/* DEVICE HEADER */}
           <div className="border-b border-gray-200 px-6 py-5">
             <div className="flex items-start gap-4">
+
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                 <Package size={28} />
               </div>
@@ -191,11 +196,14 @@ function DeviceDetailPage() {
                   {device.device_type}
                 </p>
               </div>
+
             </div>
           </div>
 
           {/* INFORMATION GRID */}
           <div className="grid gap-3 px-6 py-5 sm:grid-cols-2">
+
+            {/* LOẠI THIẾT BỊ */}
             <div className="rounded-xl bg-gray-50 px-4 py-3">
               <p className="text-sm text-gray-500">
                 Loại thiết bị
@@ -206,6 +214,7 @@ function DeviceDetailPage() {
               </p>
             </div>
 
+            {/* BAN QUẢN LÝ */}
             <div className="rounded-xl bg-gray-50 px-4 py-3">
               <p className="text-sm text-gray-500">
                 Ban quản lý
@@ -216,6 +225,7 @@ function DeviceDetailPage() {
               </p>
             </div>
 
+            {/* SỐ LƯỢNG GỐC */}
             <div className="rounded-xl bg-gray-50 px-4 py-3">
               <p className="text-sm text-gray-500">
                 Số lượng gốc
@@ -226,20 +236,22 @@ function DeviceDetailPage() {
               </p>
             </div>
 
+            {/* SỐ LƯỢNG HIỆN TẠI */}
             <div className="rounded-xl bg-gray-50 px-4 py-3">
               <p className="text-sm text-gray-500">
                 Số lượng hiện tại
               </p>
 
-            <p className="mt-1 text-2xl font-bold text-blue-600">
-              {device.current_quantity}
-            </p>
+              <p className="mt-1 text-2xl font-bold text-blue-600">
+                {device.current_quantity}
+              </p>
             </div>
+
           </div>
 
           {/* ACTIONS */}
           <div className="flex flex-wrap gap-3 border-t border-gray-200 px-6 py-5">
-            
+
             {/* MƯỢN */}
             <button
               type="button"
@@ -264,6 +276,7 @@ function DeviceDetailPage() {
             {/* QUẢN LÝ THIẾT BỊ */}
             {canManageDevice && (
               <>
+                {/* SỬA */}
                 <button
                   type="button"
                   onClick={() => setShowEditModal(true)}
@@ -273,6 +286,7 @@ function DeviceDetailPage() {
                   Sửa
                 </button>
 
+                {/* XÓA */}
                 <button
                   type="button"
                   onClick={() => setShowDeleteModal(true)}
@@ -283,11 +297,13 @@ function DeviceDetailPage() {
                 </button>
               </>
             )}
+
           </div>
         </div>
 
-                {/* HISTORY */}
+        {/* HISTORY */}
         <section className="mt-6">
+
           {historyError ? (
             <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-600">
               {historyError}
@@ -298,6 +314,7 @@ function DeviceDetailPage() {
               loading={loadingHistory}
             />
           )}
+
         </section>
       </main>
 
@@ -309,6 +326,7 @@ function DeviceDetailPage() {
           onClose={() => setShowBorrowModal(false)}
           onSuccess={async () => {
             setShowBorrowModal(false);
+
             await loadDevice();
             await loadHistory();
           }}
@@ -322,10 +340,11 @@ function DeviceDetailPage() {
           returnDevice={returnDevice}
           onClose={() => setShowReturnModal(false)}
           onSuccess={async () => {
-          setShowReturnModal(false);
-          await loadDevice();
-          await loadHistory();
-        }}
+            setShowReturnModal(false);
+
+            await loadDevice();
+            await loadHistory();
+          }}
         />
       )}
 
@@ -337,6 +356,7 @@ function DeviceDetailPage() {
           onClose={() => setShowEditModal(false)}
           onSuccess={async () => {
             setShowEditModal(false);
+
             await loadDevice();
           }}
         />
@@ -350,11 +370,11 @@ function DeviceDetailPage() {
           onClose={() => setShowDeleteModal(false)}
           onSuccess={async () => {
             setShowDeleteModal(false);
+
             navigate(-1);
           }}
         />
       )}
-
     </div>
   );
 }

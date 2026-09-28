@@ -24,26 +24,31 @@ function DeviceTable({ devices, onDeviceClick }) {
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[700px]">
-          <thead className="bg-gray-50">
-            <tr className="border-b border-gray-200">
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+
+          {/* HEADER BẢNG */}
+          <thead className="bg-amber-50">
+            <tr className="h-14 border-b border-amber-200">
+
+              <th className="px-6 py-4 text-left text-lg font-bold text-[#5c2a06]">
                 Tên thiết bị
               </th>
 
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+              <th className="px-6 py-4 text-left text-lg font-bold text-[#5c2a06]">
                 Loại thiết bị
               </th>
 
-              <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700">
+              <th className="px-6 py-4 text-center text-lg font-bold text-[#5c2a06]">
                 SL gốc
               </th>
 
-              <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700">
+              <th className="px-6 py-4 text-center text-lg font-bold text-[#5c2a06]">
                 SL hiện tại
               </th>
+
             </tr>
           </thead>
 
+          {/* DỮ LIỆU */}
           <tbody>
             {devices.map((device) => (
               <tr
@@ -69,6 +74,7 @@ function DeviceTable({ devices, onDeviceClick }) {
               </tr>
             ))}
           </tbody>
+
         </table>
       </div>
     </div>

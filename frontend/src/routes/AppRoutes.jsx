@@ -2,9 +2,10 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 import LoginPage from '../pages/LoginPage';
 import DashboardPage from '../pages/DashboardPage';
-import { useAuth } from '../context/AuthContext';
-
+import AccountManagementPage from '../pages/AccountManagementPage';
 import DeviceDetailPage from '../pages/DeviceDetailPage';
+
+import { useAuth } from '../context/AuthContext';
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth();
@@ -33,12 +34,32 @@ function AppRoutes() {
           }
         />
 
-        {/* Dashboard - yêu cầu đăng nhập */}
+        {/* Dashboard */}
         <Route
           path="/dashboard"
           element={
             <ProtectedRoute>
               <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Quản lý tài khoản - ADMIN */}
+        <Route
+          path="/accounts"
+          element={
+            <ProtectedRoute>
+              <AccountManagementPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Chi tiết thiết bị */}
+        <Route
+          path="/devices/:deviceId"
+          element={
+            <ProtectedRoute>
+              <DeviceDetailPage />
             </ProtectedRoute>
           }
         />
@@ -54,19 +75,10 @@ function AppRoutes() {
           }
         />
 
-        {/* Trang không tồn tại */}
+        {/* Trang không tồn tại - luôn để cuối */}
         <Route
           path="*"
           element={<Navigate to="/" replace />}
-        />
-
-        <Route
-          path="/devices/:deviceId"
-          element={
-          <ProtectedRoute>
-         <DeviceDetailPage />
-         </ProtectedRoute>
-        }
         />
 
       </Routes>

@@ -57,13 +57,7 @@ function ReturnDeviceModal({
   );
 
   useEffect(() => {
-    if (selectedBorrow) {
-      setReturnedQuantity(
-        String(selectedBorrow.remaining_quantity)
-      );
-    } else {
-      setReturnedQuantity('');
-    }
+    setReturnedQuantity('');
   }, [selectedBorrow]);
 
   const handleSubmit = async (event) => {
