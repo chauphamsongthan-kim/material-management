@@ -23,25 +23,21 @@ async function testConnection() {
   try {
     const conn = await pool.getConnection();
 
-    const [rows] = await conn.query(`
-      SELECT
-        DATABASE() AS database_name,
-        @@hostname AS mysql_host,
-        @@port AS mysql_port
-    `);
+    const [dbRows] = await conn.query(
+      'SELECT DATABASE() AS database_name, @@hostname AS mysql_host'
+    );
 
-    const [tables] = await conn.query(`
-      SELECT TABLE_NAME
-      FROM information_schema.TABLES
-      WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = 'notifications'
-    `);
+    const [tableRows] = await conn.query(
+      `SHOW TABLES`
+    );
 
     console.log('✅ Kết nối MySQL thành công.');
-    console.log('📌 Database:', rows[0].database_name);
-    console.log('📌 MySQL host:', rows[0].mysql_host);
-    console.log('📌 MySQL port:', rows[0].mysql_port);
-    console.log('📌 Bảng notifications:', tables.length > 0 ? 'Tồn tại' : 'Không tồn tại');
+    console.log('📌 Database:', dbRows[0].database_name);
+    console.log('📌 MySQL host:', dbRows[0].mysql_host);
+    console.log(
+      '📌 Tables:',
+      tableRows.map((row) => Object.values(row)[0]).join(', ')
+    );
 
     conn.release();
   } catch (err) {
