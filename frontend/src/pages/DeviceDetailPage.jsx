@@ -46,9 +46,17 @@ function DeviceDetailPage() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [historyError, setHistoryError] = useState('');
 
+  const [noteEditing, setNoteEditing] = useState(false);
+  const [noteDraft, setNoteDraft] = useState('');
+  const [noteSaving, setNoteSaving] = useState(false);
+  const [noteError, setNoteError] = useState('');
+
   const canManageDevice =
     user?.role === 'ADMIN' ||
-    Number(user?.department_id) === Number(device?.department_id);
+    (
+      user?.role === 'HEAD' &&
+      Number(user?.department_id) === Number(device?.department_id)
+    );
 
   useEffect(() => {
     loadDevice();
@@ -64,6 +72,7 @@ function DeviceDetailPage() {
 
       if (result.success) {
         setDevice(result.data);
+        setNoteDraft(result.data.notes || '');
       } else {
         setError(
           result.message || 'Không thể tải thông tin thiết bị.'
@@ -106,6 +115,36 @@ function DeviceDetailPage() {
       setLoadingHistory(false);
     }
   }
+
+  async function handleSaveNote() {
+  try {
+    setNoteSaving(true);
+    setNoteError('');
+
+    const result = await updateDevice(deviceId, {
+      notes: noteDraft.trim(),
+    });
+
+    if (!result.success) {
+      setNoteError(result.message || 'Không thể lưu ghi chú.');
+      return;
+    }
+
+    setDevice((prev) => ({
+      ...prev,
+      notes: noteDraft.trim(),
+    }));
+
+    setNoteEditing(false);
+  } catch (err) {
+    console.error('Lỗi lưu ghi chú:', err);
+    setNoteError(
+      err.response?.data?.message || 'Không thể lưu ghi chú.'
+    );
+  } finally {
+    setNoteSaving(false);
+  }
+}
 
   if (loading) {
     return (
@@ -163,7 +202,7 @@ function DeviceDetailPage() {
       </header>
 
       {/* MAIN */}
-      <main className="mx-auto max-w-4xl px-6 py-8">
+      <main className="mx-auto w-full max-w-[1400px] px-4 py-8 lg:translate-x-10">
 
         {/* TITLE */}
         <div className="mb-8">
@@ -176,146 +215,197 @@ function DeviceDetailPage() {
           </p>
         </div>
 
-        {/* DEVICE INFORMATION */}
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+{/* DEVICE INFORMATION + NOTES */}
+<div className="grid items-start gap-6 lg:grid-cols-[minmax(0,2.8fr)_minmax(220px,0.75fr)]">
+  {/* CỘT TRÁI: THÔNG TIN THIẾT BỊ + LỊCH SỬ */}
+  <div className="min-w-0 space-y-6">
+    {/* DEVICE INFORMATION */}
+    <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+      {/* DEVICE HEADER */}
+      <div className="border-b border-gray-200 px-6 py-5">
+        <div className="flex items-center gap-6">
 
-          {/* DEVICE HEADER */}
-          <div className="border-b border-gray-200 px-6 py-5">
-            <div className="flex items-start gap-4">
-
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                <Package size={28} />
-              </div>
-
-              <div>
-                <h2 className="text-xl font-bold text-gray-800">
-                  {device.device_name}
-                </h2>
-
-                <p className="mt-1 text-gray-500">
-                  {device.device_type}
-                </p>
-              </div>
-
-            </div>
+          {/* Ô ảnh / logo tạm thời */}
+          <div className="flex h-40 w-40 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-gray-50">
+            <span className="text-sm text-gray-400">
+              Ảnh thiết bị
+            </span>
           </div>
 
-          {/* INFORMATION GRID */}
-          <div className="grid gap-3 px-6 py-5 sm:grid-cols-2">
+          {/* Thông tin thiết bị */}
+          <div className="min-w-0">
+            <h2 className="break-words text-3xl font-bold text-gray-900">
+              {device.device_name}
+            </h2>
 
-            {/* LOẠI THIẾT BỊ */}
-            <div className="rounded-xl bg-gray-50 px-4 py-3">
-              <p className="text-sm text-gray-500">
-                Loại thiết bị
-              </p>
+            <p className="mt-2 text-lg text-gray-500">
+              Thông tin thiết bị
+            </p>
 
-              <p className="mt-1 font-medium text-gray-800">
-                {device.device_type}
-              </p>
-            </div>
+            <p className="mt-2 text-base text-gray-700">
+              Loại thiết bị: {device.device_type}
+            </p>
 
-            {/* BAN QUẢN LÝ */}
-            <div className="rounded-xl bg-gray-50 px-4 py-3">
-              <p className="text-sm text-gray-500">
-                Ban quản lý
-              </p>
-
-              <p className="mt-1 font-medium text-gray-800">
-                {device.department_name}
-              </p>
-            </div>
-
-            {/* SỐ LƯỢNG GỐC */}
-            <div className="rounded-xl bg-gray-50 px-4 py-3">
-              <p className="text-sm text-gray-500">
-                Số lượng gốc
-              </p>
-
-              <p className="mt-1 text-2xl font-bold text-gray-800">
-                {device.original_quantity}
-              </p>
-            </div>
-
-            {/* SỐ LƯỢNG HIỆN TẠI */}
-            <div className="rounded-xl bg-gray-50 px-4 py-3">
-              <p className="text-sm text-gray-500">
-                Số lượng hiện tại
-              </p>
-
-              <p className="mt-1 text-2xl font-bold text-blue-600">
-                {device.current_quantity}
-              </p>
-            </div>
-
+            <p className="mt-2 text-base text-gray-700">
+              Ban quản lý: {device.department_name}
+            </p>
           </div>
 
-          {/* ACTIONS */}
-          <div className="flex flex-wrap gap-3 border-t border-gray-200 px-6 py-5">
+        </div>
+      </div>
 
-            {/* MƯỢN */}
-            <button
-              type="button"
-              onClick={() => setShowBorrowModal(true)}
-              disabled={device.current_quantity <= 0}
-              className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md disabled:cursor-not-allowed disabled:bg-gray-400 disabled:shadow-none"
-            >
-              Mượn thiết bị
-            </button>
 
-            {/* TRẢ */}
-            {canManageDevice && (
-              <button
-                type="button"
-                onClick={() => setShowReturnModal(true)}
-                className="rounded-xl border border-green-200 bg-white px-5 py-2.5 text-sm font-semibold text-green-700 transition hover:bg-green-50"
-              >
-                Trả thiết bị
-              </button>
-            )}
 
-            {/* QUẢN LÝ THIẾT BỊ */}
-            {canManageDevice && (
-              <>
-                {/* SỬA */}
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(true)}
-                  className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-                >
-                  <Pencil size={16} />
-                  Sửa
-                </button>
-
-                {/* XÓA */}
-                <button
-                  type="button"
-                  onClick={() => setShowDeleteModal(true)}
-                  className="flex items-center gap-2 rounded-xl border border-red-200 bg-white px-5 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50"
-                >
-                  <Trash2 size={16} />
-                  Xóa
-                </button>
-              </>
-            )}
-
-          </div>
+      {/* QUANTITY */}
+      <div className="grid gap-3 border-t border-gray-200 px-6 py-4 sm:grid-cols-2">
+        <div className="rounded-xl bg-gray-50 px-4 py-5">
+          <p className="text-sm text-gray-500">Số lượng gốc</p>
+          <p className="mt-1 text-2xl font-bold text-gray-800">
+            {device.original_quantity}
+          </p>
         </div>
 
-        {/* HISTORY */}
-        <section className="mt-6">
+        <div className="rounded-xl bg-gray-50 px-4 py-5">
+          <p className="text-sm text-gray-500">Số lượng hiện tại</p>
+          <p className="mt-1 text-2xl font-bold text-blue-600">
+            {device.current_quantity}
+          </p>
+        </div>
+      </div>
 
-          {historyError ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-600">
-              {historyError}
-            </div>
-          ) : (
-            <DeviceHistoryTable
-              history={history}
-              loading={loadingHistory}
-            />
+      {/* ACTIONS */}
+      <div className="flex flex-wrap gap-3 border-t border-gray-200 px-6 py-8">
+        <button
+          type="button"
+          onClick={() => setShowBorrowModal(true)}
+          disabled={device.current_quantity <= 0}
+          className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md disabled:cursor-not-allowed disabled:bg-gray-400 disabled:shadow-none"
+        >
+          Mượn thiết bị
+        </button>
+
+        {canManageDevice && (
+          <button
+            type="button"
+            onClick={() => setShowReturnModal(true)}
+            className="rounded-xl border border-green-200 bg-white px-5 py-2.5 text-sm font-semibold text-green-700 transition hover:bg-green-50"
+          >
+            Trả thiết bị
+          </button>
+        )}
+
+        {canManageDevice && (
+          <>
+            <button
+              type="button"
+              onClick={() => setShowEditModal(true)}
+              className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+            >
+              <Pencil size={16} />
+              Sửa
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowDeleteModal(true)}
+              className="flex items-center gap-2 rounded-xl border border-red-200 bg-white px-5 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+            >
+              <Trash2 size={16} />
+              Xóa
+            </button>
+          </>
+        )}
+      </div>
+    </section>
+
+    {/* HISTORY */}
+    <section className="min-w-0">
+      {historyError ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-600">
+          {historyError}
+        </div>
+      ) : (
+        <DeviceHistoryTable
+          history={history}
+          loading={loadingHistory}
+        />
+      )}
+    </section>
+  </div>
+
+  {/* CỘT PHẢI: GHI CHÚ */}
+  <section className="min-w-0 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-5 py-4">
+      <h3 className="font-semibold text-gray-800">
+        Ghi chú
+      </h3>
+
+      {canManageDevice && !noteEditing && (
+        <button
+          type="button"
+          onClick={() => {
+            setNoteDraft(device.notes || '');
+            setNoteError('');
+            setNoteEditing(true);
+          }}
+          className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+        >
+          <Pencil size={14} />
+          Sửa
+        </button>
+      )}
+    </div>
+
+    <div className="p-5">
+      {noteEditing ? (
+        <div className="space-y-3">
+          <textarea
+            value={noteDraft}
+            onChange={(event) => setNoteDraft(event.target.value)}
+            rows={6}
+            disabled={noteSaving}
+            placeholder="Nhập ghi chú cho thiết bị..."
+            className="w-full resize-y rounded-xl border border-gray-300 px-3 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-gray-100"
+          />
+
+          {noteError && (
+            <p className="text-sm text-red-600">
+              {noteError}
+            </p>
           )}
 
-        </section>
+          <div className="flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setNoteDraft(device.notes || '');
+                setNoteError('');
+                setNoteEditing(false);
+              }}
+              disabled={noteSaving}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Hủy
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSaveNote}
+              disabled={noteSaving}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {noteSaving ? 'Đang lưu...' : 'Lưu ghi chú'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="whitespace-pre-wrap break-words text-sm leading-6 text-gray-700">
+          {device.notes?.trim() || 'Chưa có ghi chú cho thiết bị này.'}
+        </p>
+      )}
+    </div>
+  </section>
+</div>
       </main>
 
       {/* BORROW MODAL */}

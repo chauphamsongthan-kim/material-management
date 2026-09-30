@@ -4,6 +4,25 @@
 
 const { pool } = require('../config/database');
 
+function getVietnamDateTime() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date());
+
+  const values = Object.fromEntries(
+    parts.map((part) => [part.type, part.value])
+  );
+
+  return `${values.year}-${values.month}-${values.day} ${values.hour}:${values.minute}:${values.second}`;
+}
+
 // POST /api/devices/:id/return -> Trả thiết bị
 async function returnDevice(req, res) {
   const connection = await pool.getConnection();
@@ -132,7 +151,7 @@ async function returnDevice(req, res) {
     // =========================================
     // TỰ ĐỘNG GHI NHẬN NGÀY TRẢ
     // =========================================
-    const returnDate = new Date();
+    const returnDate = getVietnamDateTime();
 
     // =========================================
     // GHI NHẬN LẦN TRẢ

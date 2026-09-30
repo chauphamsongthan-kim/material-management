@@ -3,6 +3,8 @@ import {
   Search,
   LogOut,
   KeyRound,
+  Bell,
+  X,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -20,6 +22,11 @@ import DeviceTable from '../components/devices/DeviceTable';
 
 import AddDeviceModal from '../components/devices/AddDeviceModal';
 import ChangePasswordModal from '../components/common/ChangePasswordModal';
+import {
+  getNotifications,
+  markNotificationRead,
+  deleteNotification,
+} from '../api/notificationApi';
 
 function DashboardPage() {
   const { user, logoutUser } = useAuth();
@@ -49,6 +56,13 @@ function DashboardPage() {
   const [showChangePasswordModal, setShowChangePasswordModal] =
     useState(false);
 
+  // Trạng thái thông báo
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [notificationError, setNotificationError] = useState('');
+
   useEffect(() => {
     loadDepartments();
   }, []);
@@ -75,6 +89,125 @@ function DashboardPage() {
       setLoading(false);
     }
   }
+  // Tải thông báo của tài khoản đang đăng nhập
+const loadNotifications = async () => {
+  try {
+    setLoadingNotifications(true);
+    setNotificationError('');
+
+    const result = await getNotifications();
+
+    if (result.success) {
+      setNotifications(result.data || []);
+      setUnreadCount(Number(result.unread_count) || 0);
+    } else {
+      setNotificationError(
+        result.message || 'Không thể tải thông báo.'
+      );
+    }
+  } catch (err) {
+    console.error('Lỗi tải thông báo:', err);
+    setNotificationError(
+      err.response?.data?.message || 'Không thể tải thông báo.'
+    );
+  } finally {
+    setLoadingNotifications(false);
+  }
+};
+
+// Tự tải thông báo khi vào Dashboard và cập nhật định kỳ
+useEffect(() => {
+  if (!user?.user_id) return;
+
+  loadNotifications();
+
+  const intervalId = setInterval(() => {
+    loadNotifications();
+  }, 15000);
+
+  return () => clearInterval(intervalId);
+}, [user?.user_id]);
+
+// Đánh dấu thông báo đã đọc
+const handleNotificationClick = async (notification) => {
+  try {
+    if (!notification.is_read) {
+      const result = await markNotificationRead(
+        notification.notification_id
+      );
+
+      if (!result.success) {
+        setNotificationError(
+          result.message || 'Không thể đánh dấu đã đọc.'
+        );
+        return;
+      }
+
+      setNotifications((previous) =>
+        previous.map((item) =>
+          item.notification_id === notification.notification_id
+            ? { ...item, is_read: 1 }
+            : item
+        )
+      );
+
+      setUnreadCount((previous) => Math.max(0, previous - 1));
+    }
+
+    setShowNotifications(false);
+
+    if (notification.device_id) {
+      navigate(`/devices/${notification.device_id}`);
+    }
+  } catch (err) {
+    console.error('Lỗi cập nhật thông báo:', err);
+    setNotificationError(
+      err.response?.data?.message ||
+        'Không thể cập nhật thông báo.'
+    );
+  }
+};
+
+  // Xóa thông báo
+const handleDeleteNotification = async (notification) => {
+  try {
+    setNotificationError('');
+
+    const result = await deleteNotification(
+      notification.notification_id
+    );
+
+    if (!result.success) {
+      setNotificationError(
+        result.message || 'Không thể xóa thông báo.'
+      );
+      return;
+    }
+
+    // Xóa thông báo khỏi danh sách trên giao diện
+    setNotifications((previous) =>
+      previous.filter(
+        (item) =>
+          item.notification_id !== notification.notification_id
+      )
+    );
+
+    // Nếu thông báo chưa đọc, giảm số lượng chưa đọc
+    if (
+      notification.is_read === false ||
+      notification.is_read === 0
+    ) {
+      setUnreadCount((previous) => Math.max(0, previous - 1));
+    }
+  } catch (err) {
+    console.error('Lỗi xóa thông báo:', err);
+
+    setNotificationError(
+      err.response?.data?.message ||
+        'Không thể xóa thông báo.'
+    );
+  }
+};
 
   const handleSearch = async (keyword) => {
     setSearch(keyword);
@@ -257,7 +390,8 @@ function DashboardPage() {
 
           {/* USER + ACTIONS */}
           <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 lg:w-auto lg:flex-nowrap lg:gap-3">
-
+            
+            
             {/* Thông tin tài khoản */}
             <div className="mr-2 text-right">
               <p className="font-semibold text-[#5c2a06]">
@@ -275,6 +409,133 @@ function DashboardPage() {
                 {user?.role}
               </p>
             </div>
+
+          {/* NOTIFICATIONS */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                const nextState = !showNotifications;
+                setShowNotifications(nextState);
+
+                if (nextState) {
+                  loadNotifications();
+                }
+              }}
+              className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-amber-300 bg-white text-[#7c3a0a] transition hover:bg-amber-50"
+              aria-label="Thông báo"
+              title="Thông báo"
+            >
+              <Bell size={20} />
+
+              {unreadCount > 0 && (
+                <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-xs font-bold text-white">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {showNotifications && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Đóng danh sách thông báo"
+                  className="fixed inset-0 z-40 cursor-default"
+                  onClick={() => setShowNotifications(false)}
+                />
+
+                <div className="absolute right-0 top-full z-50 mt-2 w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-gray-200 bg-white text-left shadow-xl">
+                  <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
+                    <h3 className="whitespace-nowrap font-semibold text-gray-800">
+                      Thông báo
+                    </h3>
+
+                    <span className="whitespace-nowrap text-xs text-gray-500">
+                      {unreadCount} chưa đọc
+                    </span>
+                  </div>
+
+                  {loadingNotifications && notifications.length === 0 && (
+                    <div className="p-5 text-center text-sm text-gray-500">
+                      Đang tải thông báo...
+                    </div>
+                  )}
+
+                  {notificationError && (
+                    <div className="p-3 text-sm text-red-600">
+                      {notificationError}
+                    </div>
+                  )}
+
+                  {!loadingNotifications && notifications.length === 0 && (
+                    <div className="p-6 text-center text-sm text-gray-500">
+                      Bạn chưa có thông báo nào.
+                    </div>
+                  )}
+
+                  {notifications.length > 0 && (
+                    <div className="max-h-96 overflow-y-auto">
+                      {notifications.map((notification) => (
+                        <div
+                          key={notification.notification_id}
+                          className={`flex items-start gap-2 border-b border-gray-100 px-3 py-3 transition hover:bg-amber-50 ${
+                            !notification.is_read ? 'bg-amber-50/70' : 'bg-white'
+                          }`}
+                        >
+                          {/* Nội dung thông báo */}
+                          <button
+                            type="button"
+                            onClick={() => handleNotificationClick(notification)}
+                            className="flex min-w-0 flex-1 items-start gap-2 text-left"
+                          >
+                            {!notification.is_read && (
+                              <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-600" />
+                            )}
+
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate whitespace-nowrap text-sm font-medium text-gray-800">
+                                {notification.message}
+                              </p>
+
+                              <p className="mt-1 whitespace-nowrap text-xs text-gray-500">
+                                {notification.created_at ? (
+                                  <>
+                                    <span>
+                                      {new Date(notification.created_at).toLocaleDateString('vi-VN')}
+                                    </span>
+
+                                    <span className="ml-6">
+                                      {new Date(notification.created_at).toLocaleTimeString('vi-VN', {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit',
+                                        hour12: false,
+                                      })}
+                                    </span>
+                                  </>
+                                ) : ''}
+                              </p>
+                            </div>
+                          </button>
+
+                          {/* Nút xóa thông báo */}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteNotification(notification)}
+                            aria-label="Xóa thông báo"
+                            title="Xóa thông báo"
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-400 transition hover:bg-red-100 hover:text-red-600"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
 
             {/* Quản lý tài khoản - chỉ ADMIN */}
             {user?.role === 'ADMIN' && (

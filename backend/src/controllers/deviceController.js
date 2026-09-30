@@ -10,7 +10,7 @@ const { canManageDepartment } = require('../utils/permissions');
 async function addDevice(req, res) {
   try {
     const departmentId = req.params.id;
-    const { device_name, device_type, original_quantity } = req.body;
+    const { device_name, device_type, original_quantity, notes = '' } = req.body;
 
     if (!device_name || !device_type || original_quantity === undefined) {
       return res.status(400).json({
@@ -30,9 +30,10 @@ async function addDevice(req, res) {
 
     // current_quantity tự động bằng original_quantity khi tạo mới
     const [result] = await pool.query(
-      `INSERT INTO devices (department_id, device_name, device_type, original_quantity, current_quantity)
-       VALUES (?, ?, ?, ?, ?)`,
-      [departmentId, device_name, device_type, quantity, quantity]
+      `INSERT INTO devices
+      (department_id, device_name, device_type, original_quantity, current_quantity, notes)
+      VALUES (?, ?, ?, ?, ?, ?)`,
+      [departmentId, device_name, device_type, quantity, quantity, notes]
     );
 
     return res.status(201).json({
@@ -74,7 +75,7 @@ async function getDeviceById(req, res) {
 async function updateDevice(req, res) {
   try {
     const deviceId = req.params.id;
-    const { device_name, device_type, original_quantity } = req.body;
+    const { device_name, device_type, original_quantity, notes } = req.body;
 
     const [rows] = await pool.query('SELECT * FROM devices WHERE device_id = ?', [deviceId]);
 
@@ -120,12 +121,21 @@ async function updateDevice(req, res) {
 
     const newDeviceName = device_name !== undefined ? device_name : device.device_name;
     const newDeviceType = device_type !== undefined ? device_type : device.device_type;
+    const newNotes = notes !== undefined ? notes : device.notes;
 
     await pool.query(
       `UPDATE devices
-       SET device_name = ?, device_type = ?, original_quantity = ?, current_quantity = ?
-       WHERE device_id = ?`,
-      [newDeviceName, newDeviceType, newOriginalQuantity, newCurrentQuantity, deviceId]
+      SET device_name = ?, device_type = ?, original_quantity = ?,
+          current_quantity = ?, notes = ?
+      WHERE device_id = ?`,
+      [
+        newDeviceName,
+        newDeviceType,
+        newOriginalQuantity,
+        newCurrentQuantity,
+        newNotes,
+        deviceId,
+      ]
     );
 
     return res.json({ success: true, message: 'Cập nhật thiết bị thành công.' });

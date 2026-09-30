@@ -5,6 +5,25 @@
 const crypto = require('crypto');
 const { pool } = require('../config/database');
 
+function getVietnamDateTime() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date());
+
+  const values = Object.fromEntries(
+    parts.map((part) => [part.type, part.value])
+  );
+
+  return `${values.year}-${values.month}-${values.day} ${values.hour}:${values.minute}:${values.second}`;
+}
+
 // POST /api/devices/:id/borrow -> Mượn thiết bị
 async function borrowDevice(req, res) {
   const connection = await pool.getConnection();
@@ -62,7 +81,7 @@ async function borrowDevice(req, res) {
     // =========================================
     // TỰ ĐỘNG GHI NHẬN NGÀY MƯỢN
     // =========================================
-    const borrowDate = new Date();
+    const borrowDate = getVietnamDateTime();
 
     const borrowId = crypto.randomUUID();
 
@@ -96,6 +115,36 @@ async function borrowDevice(req, res) {
     );
 
     await connection.commit();
+
+    // Tìm HEAD của ban sở hữu thiết bị
+    const [headRows] = await pool.query(
+      `SELECT user_id
+      FROM users
+      WHERE role = 'HEAD' AND department_id = ?`,
+      [device.department_id]
+    );
+
+    // Tạo thông báo cho HEAD của ban
+    if (headRows.length > 0) {
+      const recipientId = headRows[0].user_id;
+      const borrowerName = borrower_name.trim();
+      const deviceName = device.device_name;
+      const message = `${borrowerName} đã mượn ${qty} ${deviceName}`;
+
+      await pool.query(
+        `INSERT INTO notifications
+          (recipient_id, device_id, borrower_name, device_name, borrowed_quantity, message)
+        VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          recipientId,
+          deviceId,
+          borrowerName,
+          deviceName,
+          qty,
+          message,
+        ]
+      );
+    }
 
     return res.status(201).json({
       success: true,

@@ -11,7 +11,11 @@ const deviceRoutes = require('./routes/deviceRoutes');
 
 const userRoutes = require('./routes/userRoutes');
 
+const notificationRoutes = require('./routes/notificationRoutes');
+
 const app = express();
+
+
 
 app.use(cors());
 app.use(express.json());
@@ -27,6 +31,7 @@ app.use('/api/departments', departmentRoutes);
 app.use('/api/devices', deviceRoutes);
 
 app.use('/api/users', userRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Xử lý route không tồn tại
 app.use((req, res) => {

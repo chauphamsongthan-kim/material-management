@@ -15,6 +15,7 @@ function AddDeviceModal({
   const [deviceName, setDeviceName] = useState('');
   const [deviceType, setDeviceType] = useState('');
   const [originalQuantity, setOriginalQuantity] = useState('');
+  const [notes, setNotes] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -52,6 +53,7 @@ function AddDeviceModal({
           device_name: name,
           device_type: type,
           original_quantity: quantity,
+          notes: notes.trim(),
         }
       );
 
@@ -208,6 +210,21 @@ function AddDeviceModal({
               Số lượng hiện tại sẽ được tự động đặt bằng số lượng gốc.
             </p>
           </div>
+          {/* GHI CHÚ */}
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-gray-700">
+                Ghi chú
+              </label>
+
+              <textarea
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                placeholder="Nhập ghi chú cho thiết bị (không bắt buộc)"
+                rows={3}
+                disabled={loading}
+                className="w-full resize-y rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 hover:border-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:cursor-not-allowed disabled:bg-gray-100"
+              />
+            </div>
 
           {/* ERROR */}
           {error && (
