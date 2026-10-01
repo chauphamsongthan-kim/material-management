@@ -96,7 +96,7 @@ function AccountManagementPage() {
     setCreateForm((prev) => ({
       ...prev,
       role,
-      department_id: role === 'ADMIN' ? '' : prev.department_id,
+      department_id: role === 'HEAD' ? prev.department_id : '',
     }));
   };
 
@@ -400,11 +400,13 @@ function AccountManagementPage() {
 
                       <td className="px-5 py-4">
                         <span
-                          className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${
-                            account.role === 'ADMIN'
-                              ? 'bg-red-100 text-red-700'
-                              : 'bg-blue-100 text-blue-700'
-                          }`}
+                        className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${
+                          account.role === 'ADMIN'
+                            ? 'bg-red-100 text-red-700'
+                            : account.role === 'HEAD'
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-green-100 text-green-700'
+                        }`}
                         >
                           <Shield size={13} />
                           {account.role}
@@ -412,7 +414,9 @@ function AccountManagementPage() {
                       </td>
 
                       <td className="px-5 py-4 text-sm text-gray-600">
-                        {account.department_name || 'Toàn hệ thống'}
+                        {account.role === 'GUEST'
+                          ? 'Không thuộc Ban'
+                          : account.department_name || 'Toàn hệ thống'}
                       </td>
 
                       <td className="px-5 py-4">
@@ -456,7 +460,7 @@ function AccountManagementPage() {
                 </h2>
 
                 <p className="mt-1 text-sm text-gray-500">
-                  Thêm tài khoản ADMIN hoặc HEAD
+                  Thêm tài khoản ADMIN, HEAD hoặc GUEST
                 </p>
               </div>
 
@@ -531,8 +535,10 @@ function AccountManagementPage() {
                   onChange={handleRoleChange}
                   className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
                 >
-                  <option value="HEAD">HEAD</option>
                   <option value="ADMIN">ADMIN</option>
+                  <option value="HEAD">HEAD</option>
+                  <option value="GUEST">GUEST</option>
+                  
                 </select>
               </div>
 

@@ -64,8 +64,10 @@ async function createUser(req, res) {
       });
     }
 
-    // Chỉ cho phép 2 role hiện tại
-    if (role !== 'ADMIN' && role !== 'HEAD') {
+    // Chỉ cho phép các role hợp lệ
+    const allowedRoles = ['ADMIN', 'HEAD', 'GUEST'];
+
+    if (!allowedRoles.includes(role)) {
       return res.status(400).json({
         success: false,
         message: 'Role không hợp lệ.',
@@ -120,6 +122,35 @@ async function createUser(req, res) {
         },
       });
     }
+
+    // =========================================
+// GUEST
+// Không thuộc Ban, chỉ xem và mượn thiết bị
+// =========================================
+
+    if (role === 'GUEST') {
+      const passwordHash = await bcrypt.hash(password, 10);
+
+      const [result] = await pool.query(
+        `INSERT INTO users
+          (full_name, username, password_hash, role, department_id)
+        VALUES (?, ?, ?, 'GUEST', NULL)`,
+        [full_name, username, passwordHash]
+      );
+
+      return res.status(201).json({
+        success: true,
+        message: 'Đã tạo tài khoản GUEST thành công.',
+        data: {
+          user_id: result.insertId,
+          full_name,
+          username,
+          role: 'GUEST',
+          department_id: null,
+        },
+      });
+    }
+
 
     // =========================================
     // HEAD

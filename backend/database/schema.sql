@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
   full_name VARCHAR(100) NOT NULL,
   username VARCHAR(100) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
-  role ENUM('ADMIN', 'HEAD') NOT NULL,
+  role ENUM('ADMIN', 'HEAD', 'GUEST') NOT NULL,
   department_id INT NULL,
   CONSTRAINT fk_users_department
     FOREIGN KEY (department_id) REFERENCES departments(department_id)

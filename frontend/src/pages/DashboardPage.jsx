@@ -115,9 +115,14 @@ const loadNotifications = async () => {
   }
 };
 
-// Tự tải thông báo khi vào Dashboard và cập nhật định kỳ
+// Tự tải thông báo khi vào Dashboard và cập nhật định kỳ trừ GUEST
 useEffect(() => {
-  if (!user?.user_id) return;
+  if (!user?.user_id || user.role === 'GUEST') {
+    setNotifications([]);
+    setUnreadCount(0);
+    setShowNotifications(false);
+    return;
+  }
 
   loadNotifications();
 
@@ -126,7 +131,7 @@ useEffect(() => {
   }, 15000);
 
   return () => clearInterval(intervalId);
-}, [user?.user_id]);
+}, [user?.user_id, user?.role]);
 
 // Đánh dấu thông báo đã đọc
 const handleNotificationClick = async (notification) => {
@@ -396,12 +401,14 @@ const handleDeleteNotification = async (notification) => {
             <div className="mr-2 text-right">
               <p className="font-semibold text-[#5c2a06]">
                 {user?.role === 'HEAD'
-                  ? `Trưởng ban ${
-                      user?.department_name?.replace(
-                        /^Ban\s/,
-                        'ban '
-                      ) || ''
-                    }`
+                ? `Trưởng ban ${
+                    user?.department_name?.replace(
+                      /^Ban\s/,
+                      'ban '
+                    ) || ''
+                  }`
+                : user?.role === 'GUEST'
+                  ? 'Khách'
                   : 'Quản trị viên'}
               </p>
 
@@ -410,8 +417,9 @@ const handleDeleteNotification = async (notification) => {
               </p>
             </div>
 
-          {/* NOTIFICATIONS */}
-          <div className="relative">
+{/* NOTIFICATIONS - ADMIN và HEAD */}
+{user?.role !== 'GUEST' && (
+  <div className="relative">
             <button
               type="button"
               onClick={() => {
@@ -535,7 +543,8 @@ const handleDeleteNotification = async (notification) => {
                 </div>
               </>
             )}
-          </div>
+            </div>
+)}
 
             {/* Quản lý tài khoản - chỉ ADMIN */}
             {user?.role === 'ADMIN' && (
@@ -648,11 +657,14 @@ const handleDeleteNotification = async (notification) => {
                 </p>
               </div>
 
-              {(user?.role === 'ADMIN' ||
-                Number(user?.department_id) ===
-                  Number(
-                    selectedDepartment.department_id
-                  )) && (
+                {(
+                  user?.role === 'ADMIN' ||
+                  (
+                    user?.role === 'HEAD' &&
+                    Number(user?.department_id) ===
+                      Number(selectedDepartment.department_id)
+                  )
+                ) && (
                 <button
                   type="button"
                   onClick={() =>

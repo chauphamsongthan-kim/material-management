@@ -4,6 +4,22 @@
 
 const { canManageDepartment } = require('../utils/permissions');
 
+// Chỉ cho phép ADMIN và HEAD
+function requireStaff(req, res, next) {
+  if (
+    req.user &&
+    (req.user.role === 'ADMIN' || req.user.role === 'HEAD')
+  ) {
+    return next();
+  }
+
+  return res.status(403).json({
+    success: false,
+    message: 'GUEST không có quyền thực hiện thao tác này.',
+  });
+}
+
+
 // Chỉ cho phép ADMIN
 function requireAdmin(req, res, next) {
   if (req.user && req.user.role === 'ADMIN') {
@@ -32,5 +48,6 @@ function requireManageDepartmentFromParams(req, res, next) {
 
 module.exports = {
   requireAdmin,
+  requireStaff,
   requireManageDepartmentFromParams,
 };
