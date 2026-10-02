@@ -5,6 +5,8 @@
 
 const { pool } = require('../config/database');
 
+const { sendPushToUsers } = require('../utils/pushService');
+
 // GET /api/notifications
 // Lấy danh sách thông báo của tài khoản đang đăng nhập
 async function getNotifications(req, res) {
@@ -232,9 +234,28 @@ async function sendAdminNotification(req, res) {
       );
     }
 
-    await connection.commit();
+  await connection.commit();
 
-    return res.status(201).json({
+    // Gửi Push một lần cho toàn bộ tài khoản được chọn.
+    // pushService sẽ gộp các tài khoản dùng chung endpoint,
+    // để mỗi thiết bị chỉ nhận tối đa một Push cho sự kiện này.
+    // Push lỗi không làm mất thông báo đã lưu trong MySQL.
+    try {
+      const pushResult = await sendPushToUsers(recipientIds, {
+        title,
+        body: message,
+        url: '/',
+      });
+
+      console.log('Kết quả gửi Push:', pushResult);
+    } catch (pushError) {
+      console.error(
+        'Không thể gửi Push thông báo ADMIN:',
+        pushError.message || pushError
+      );
+    }
+
+  return res.status(201).json({
       success: true,
       message: 'Đã gửi thông báo đến các tài khoản được chọn.',
       recipient_count: recipientIds.length,

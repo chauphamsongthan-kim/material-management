@@ -4,6 +4,8 @@ import {
   LogOut,
   KeyRound,
   Bell,
+  BellRing,
+  BellOff,
   X,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -27,6 +29,13 @@ import {
   markNotificationRead,
   deleteNotification,
 } from '../api/notificationApi';
+
+import {
+  isPushSupported,
+  enablePushNotifications,
+  disablePushNotifications,
+  getPushSubscriptionStatus,
+} from '../utils/pushNotification';
 
 function DashboardPage() {
   const { user, logoutUser } = useAuth();
@@ -62,6 +71,12 @@ function DashboardPage() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [notificationError, setNotificationError] = useState('');
+
+  // Trạng thái Push Notification trên thiết bị hiện tại
+  const [pushSupported, setPushSupported] = useState(false);
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushMessage, setPushMessage] = useState('');
 
   useEffect(() => {
     loadDepartments();
@@ -112,6 +127,68 @@ const loadNotifications = async () => {
     );
   } finally {
     setLoadingNotifications(false);
+  }
+};
+
+
+// Kiểm tra khả năng hỗ trợ và trạng thái Push riêng của tài khoản
+useEffect(() => {
+  let cancelled = false;
+
+  // Tránh hiển thị nhầm trạng thái của tài khoản trước đó
+  setPushSubscribed(false);
+  setPushMessage('');
+
+  async function checkPushStatus() {
+    const status = await getPushSubscriptionStatus();
+
+    if (cancelled) return;
+
+    setPushSupported(status.supported);
+    setPushSubscribed(status.subscribed);
+
+    if (status.message) {
+      setPushMessage(status.message);
+    }
+  }
+
+  checkPushStatus();
+
+  return () => {
+    cancelled = true;
+  };
+}, [user?.user_id]);
+
+// Bật hoặc tắt Push Notification
+const handleTogglePush = async () => {
+  if (pushBusy) return;
+
+  setPushBusy(true);
+  setPushMessage('');
+
+  try {
+    if (pushSubscribed) {
+      const result = await disablePushNotifications();
+
+      if (result.success) {
+        setPushSubscribed(false);
+      }
+
+      setPushMessage(result.message);
+    } else {
+      const result = await enablePushNotifications();
+
+      if (result.success) {
+        setPushSubscribed(true);
+      }
+
+      setPushMessage(result.message);
+    }
+  } catch (err) {
+    console.error('Lỗi thay đổi Push Notification:', err);
+    setPushMessage('Đã xảy ra lỗi khi thay đổi cài đặt thông báo.');
+  } finally {
+    setPushBusy(false);
   }
 };
 
@@ -551,6 +628,57 @@ const handleDeleteNotification = async (notification) => {
             )}
             </div>
 )}
+
+            {/* PUSH NOTIFICATION */}
+            {user?.user_id && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={handleTogglePush}
+                  disabled={!pushSupported || pushBusy}
+                  className={`flex h-10 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium transition ${
+                    pushSubscribed
+                      ? 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100'
+                      : 'border-amber-300 bg-white text-[#7c3a0a] hover:bg-amber-50'
+                  } disabled:cursor-not-allowed disabled:opacity-50`}
+                  aria-label={
+                    pushSubscribed
+                      ? 'Tắt thông báo đẩy'
+                      : 'Bật thông báo đẩy'
+                  }
+                  title={
+                    !pushSupported
+                      ? 'Trình duyệt hoặc môi trường hiện tại không hỗ trợ Push Notification'
+                      : pushSubscribed
+                        ? 'Tắt thông báo đẩy trên thiết bị này'
+                        : 'Bật thông báo đẩy trên thiết bị này'
+                  }
+                >
+                  {pushBusy ? (
+                    <span className="text-xs">Đang xử lý...</span>
+                  ) : pushSubscribed ? (
+                    <>
+                      <BellRing size={17} />
+                      <span className="hidden sm:inline">Đang bật</span>
+                    </>
+                  ) : (
+                    <>
+                      <BellOff size={17} />
+                      <span className="hidden sm:inline">Bật thông báo</span>
+                    </>
+                  )}
+                </button>
+
+                {pushMessage && (
+                  <div
+                    role="status"
+                    className="absolute right-0 top-full z-50 mt-2 w-64 rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-700 shadow-lg"
+                  >
+                    {pushMessage}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Quản lý tài khoản - chỉ ADMIN */}
             {user?.role === 'ADMIN' && (

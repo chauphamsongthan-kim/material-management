@@ -5,6 +5,8 @@
 const crypto = require('crypto');
 const { pool } = require('../config/database');
 
+const { sendPushToUsers } = require('../utils/pushService');
+
 function getVietnamDateTime() {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Ho_Chi_Minh',
@@ -124,28 +126,49 @@ async function borrowDevice(req, res) {
       [device.department_id]
     );
 
-    // Tạo thông báo cho HEAD của ban
-    if (headRows.length > 0) {
-      const recipientId = headRows[0].user_id;
-      const borrowerName = borrower_name.trim();
-      const deviceName = device.device_name;
-      const message = `${borrowerName} đã mượn ${qty} ${deviceName}`;
+// Tạo thông báo và gửi Push cho HEAD của ban
+if (headRows.length > 0) {
+  const recipientId = headRows[0].user_id;
+  const borrowerName = borrower_name.trim();
+  const deviceName = device.device_name;
+  const message = `${borrowerName} đã mượn ${qty} ${deviceName}`;
 
-      await pool.query(
-        `INSERT INTO notifications
-          (recipient_id, device_id, borrower_name, device_name, borrowed_quantity, message)
-        VALUES (?, ?, ?, ?, ?, ?)`,
-        [
-          recipientId,
-          deviceId,
-          borrowerName,
-          deviceName,
-          qty,
-          message,
-        ]
+  await pool.query(
+    `INSERT INTO notifications
+      (recipient_id, device_id, borrower_name, device_name, borrowed_quantity, message)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [
+      recipientId,
+      deviceId,
+      borrowerName,
+      deviceName,
+      qty,
+      message,
+    ]
+  );
+
+    // Push chỉ gửi cho HEAD của ban sở hữu thiết bị.
+    // Lỗi Push không ảnh hưởng đến thông báo đã lưu.
+    try {
+      const pushResult = await sendPushToUsers([recipientId], {
+        title: 'Có lượt mượn thiết bị mới',
+        body: message,
+        url: `/devices/${deviceId}`,
+      });
+
+      if (pushResult.failed > 0) {
+        console.error(
+          `Gửi Push thất bại trên ${pushResult.failed} thiết bị của HEAD ${recipientId}.`
+        );
+      }
+    } catch (pushError) {
+      console.error(
+        `Không thể gửi Push đến HEAD ${recipientId}:`,
+        pushError.message
       );
     }
-
+  }
+  
     return res.status(201).json({
       success: true,
       message: 'Mượn thiết bị thành công.',

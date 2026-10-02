@@ -13,6 +13,8 @@ const userRoutes = require('./routes/userRoutes');
 
 const notificationRoutes = require('./routes/notificationRoutes');
 
+const pushRoutes = require('./routes/pushRoutes');
+
 const app = express();
 
 
@@ -32,6 +34,8 @@ app.use('/api/devices', deviceRoutes);
 
 app.use('/api/users', userRoutes);
 app.use('/api/notifications', notificationRoutes);
+
+app.use('/api/push', pushRoutes);
 
 // Xử lý route không tồn tại
 app.use((req, res) => {
