@@ -115,9 +115,9 @@ const loadNotifications = async () => {
   }
 };
 
-// Tự tải thông báo khi vào Dashboard và cập nhật định kỳ trừ GUEST
+// Tự tải thông báo khi vào Dashboard và cập nhật định kỳ
 useEffect(() => {
-  if (!user?.user_id || user.role === 'GUEST') {
+  if (!user?.user_id) {
     setNotifications([]);
     setUnreadCount(0);
     setShowNotifications(false);
@@ -417,9 +417,9 @@ const handleDeleteNotification = async (notification) => {
               </p>
             </div>
 
-{/* NOTIFICATIONS - ADMIN và HEAD */}
-{user?.role !== 'GUEST' && (
-  <div className="relative">
+{/* NOTIFICATIONS - ADMIN, HEAD và GUEST */}
+{user?.user_id && (
+    <div className="relative">
             <button
               type="button"
               onClick={() => {
@@ -501,9 +501,15 @@ const handleDeleteNotification = async (notification) => {
                             )}
 
                             <div className="min-w-0 flex-1">
-                              <p className="truncate whitespace-nowrap text-sm font-medium text-gray-800">
-                                {notification.message}
+                            {notification.title && (
+                              <p className="truncate text-sm font-semibold text-gray-800">
+                                {notification.title}
                               </p>
+                            )}
+
+                            <p className="mt-1 text-sm text-gray-700">
+                              {notification.message}
+                            </p>
 
                               <p className="mt-1 whitespace-nowrap text-xs text-gray-500">
                                 {notification.created_at ? (

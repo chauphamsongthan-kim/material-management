@@ -4,6 +4,7 @@ import {
   KeyRound,
   LoaderCircle,
   Plus,
+  Send,
   Shield,
   Trash2,
   UserRound,
@@ -20,6 +21,8 @@ import {
   deleteUser,
 } from '../api/userApi';
 
+import { sendAdminNotification } from '../api/notificationApi';
+
 function AccountManagementPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -32,6 +35,12 @@ function AccountManagementPage() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  const [showSendNotification, setShowSendNotification] = useState(false);
+  const [notificationTitle, setNotificationTitle] = useState('');
+  const [notificationMessage, setNotificationMessage] = useState('');
+  const [selectedRecipientIds, setSelectedRecipientIds] = useState([]);
+  const [notificationSuccess, setNotificationSuccess] = useState('');
 
   const [selectedUser, setSelectedUser] = useState(null);
 
@@ -74,6 +83,76 @@ function AccountManagementPage() {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRecipientChange = (userId, checked) => {
+    setSelectedRecipientIds((prev) =>
+      checked
+        ? [...prev, userId]
+        : prev.filter((id) => id !== userId)
+    );
+  };
+
+  const handleSelectAllRecipients = (checked) => {
+    setSelectedRecipientIds(
+      checked ? users.map((account) => account.user_id) : []
+    );
+  };
+
+  const handleSendNotification = async (e) => {
+    e.preventDefault();
+    setActionError('');
+    setNotificationSuccess('');
+
+    const title = notificationTitle.trim();
+    const message = notificationMessage.trim();
+
+    if (!title || !message) {
+      setActionError('Vui lòng nhập tiêu đề và nội dung thông báo.');
+      return;
+    }
+
+    if (title.length > 200) {
+      setActionError('Tiêu đề không được vượt quá 200 ký tự.');
+      return;
+    }
+
+    if (message.length > 500) {
+      setActionError('Nội dung không được vượt quá 500 ký tự.');
+      return;
+    }
+
+    if (selectedRecipientIds.length === 0) {
+      setActionError('Vui lòng chọn ít nhất một người nhận.');
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+
+      const result = await sendAdminNotification({
+        title,
+        message,
+        recipient_ids: selectedRecipientIds,
+      });
+
+      if (!result.success) {
+        setActionError(result.message || 'Không thể gửi thông báo.');
+        return;
+      }
+
+      setShowSendNotification(false);
+      setNotificationTitle('');
+      setNotificationMessage('');
+      setSelectedRecipientIds([]);
+      setNotificationSuccess('Đã gửi thông báo thành công.');
+    } catch (err) {
+      setActionError(
+        err.response?.data?.message || 'Không thể gửi thông báo.'
+      );
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -298,16 +377,31 @@ function AccountManagementPage() {
             </div>
           </div>
 
-          <button
-            onClick={() => {
-              setActionError('');
-              setShowCreate(true);
-            }}
-            className="flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-600"
-          >
-            <Plus size={19} />
-            Tạo tài khoản
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              onClick={() => {
+                setActionError('');
+                setNotificationSuccess('');
+                setSelectedRecipientIds([]);
+                setShowSendNotification(true);
+              }}
+              className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+            >
+              <Send size={18} />
+              Gửi thông báo
+            </button>
+
+            <button
+              onClick={() => {
+                setActionError('');
+                setShowCreate(true);
+              }}
+              className="flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-600"
+            >
+              <Plus size={19} />
+              Tạo tài khoản
+            </button>
+          </div>
         </div>
 
         {/* Error */}
@@ -316,6 +410,11 @@ function AccountManagementPage() {
             {error}
           </div>
         )}
+        {notificationSuccess && (
+  <div className="mb-5 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+    {notificationSuccess}
+  </div>
+)}
 
         {/* Account table */}
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
@@ -674,6 +773,157 @@ function AccountManagementPage() {
           </div>
         </div>
       )}
+
+    {/* Send notification modal */}
+    {showSendNotification && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+            <div>
+              <h2 className="text-lg font-bold text-gray-800">
+                Gửi thông báo
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Soạn nội dung và chọn tài khoản nhận thông báo.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowSendNotification(false)}
+              className="rounded-lg p-2 text-gray-400 hover:bg-gray-100"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <form onSubmit={handleSendNotification} className="space-y-5 p-6">
+            {actionError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {actionError}
+              </div>
+            )}
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                Tiêu đề
+              </label>
+              <input
+                value={notificationTitle}
+                onChange={(e) => setNotificationTitle(e.target.value)}
+                maxLength={200}
+                placeholder="Nhập tiêu đề thông báo"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+              <p className="mt-1 text-right text-xs text-gray-400">
+                {notificationTitle.length}/200
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                Nội dung
+              </label>
+              <textarea
+                value={notificationMessage}
+                onChange={(e) => setNotificationMessage(e.target.value)}
+                maxLength={500}
+                rows={4}
+                placeholder="Nhập nội dung thông báo"
+                className="w-full resize-y rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+              <p className="mt-1 text-right text-xs text-gray-400">
+                {notificationMessage.length}/500
+              </p>
+            </div>
+
+            <div>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Người nhận ({selectedRecipientIds.length}/{users.length})
+                </label>
+
+                <label className="flex items-center gap-2 text-sm text-blue-700">
+                  <input
+                    type="checkbox"
+                    checked={
+                      users.length > 0 &&
+                      selectedRecipientIds.length === users.length
+                    }
+                    onChange={(e) =>
+                      handleSelectAllRecipients(e.target.checked)
+                    }
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  Chọn tất cả
+                </label>
+              </div>
+
+              <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-gray-200 p-3">
+                {users.map((account) => (
+                  <label
+                    key={account.user_id}
+                    className="flex cursor-pointer items-center gap-3 rounded-lg p-2 hover:bg-gray-50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedRecipientIds.includes(account.user_id)}
+                      onChange={(e) =>
+                        handleRecipientChange(
+                          account.user_id,
+                          e.target.checked
+                        )
+                      }
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-gray-800">
+                        {account.full_name}
+                      </p>
+                      <p className="truncate text-xs text-gray-500">
+                        {account.username} · {account.role}
+                        {account.department_name
+                          ? ` · ${account.department_name}`
+                          : ''}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+
+                {users.length === 0 && (
+                  <p className="py-4 text-center text-sm text-gray-500">
+                    Không có tài khoản để chọn.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowSendNotification(false)}
+                className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Hủy
+              </button>
+
+              <button
+                type="submit"
+                disabled={actionLoading || selectedRecipientIds.length === 0}
+                className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {actionLoading && (
+                  <LoaderCircle size={17} className="animate-spin" />
+                )}
+                Gửi thông báo
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
+
     </div>
   );
 }

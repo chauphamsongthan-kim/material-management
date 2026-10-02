@@ -21,3 +21,18 @@ export const deleteNotification = async (notificationId) => {
   );
   return response.data;
 };
+
+// ADMIN gửi thông báo đến các tài khoản được chọn
+export const sendAdminNotification = async ({
+  title,
+  message,
+  recipient_ids,
+}) => {
+  const response = await axiosClient.post('/notifications', {
+    title,
+    message,
+    recipient_ids,
+  });
+
+  return response.data;
+};

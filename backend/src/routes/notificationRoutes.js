@@ -1,6 +1,3 @@
-// =========================================
-// ROUTES: NOTIFICATIONS
-// =========================================
 
 const express = require('express');
 const router = express.Router();
@@ -9,21 +6,24 @@ const {
   getNotifications,
   markNotificationRead,
   deleteNotification,
+  sendAdminNotification,
 } = require('../controllers/notificationController');
 
 const authMiddleware = require('../middleware/authMiddleware');
-const { requireStaff } = require('../middleware/permissionMiddleware');
+const { requireAdmin } = require('../middleware/permissionMiddleware');
 
-// GET /api/notifications
-// Lấy thông báo của tài khoản đang đăng nhập
-router.get('/', authMiddleware, requireStaff, getNotifications);
+// Tất cả tài khoản đã đăng nhập đều có thể xem và
+// thao tác trên thông báo thuộc về chính mình.
+router.get('/', authMiddleware, getNotifications);
+router.patch('/:id/read', authMiddleware, markNotificationRead);
+router.delete('/:id', authMiddleware, deleteNotification);
 
-// PATCH /api/notifications/:id/read
-// Đánh dấu thông báo đã đọc
-router.patch('/:id/read', authMiddleware, requireStaff, markNotificationRead);
-
-// DELETE /api/notifications/:id
-// Xóa một thông báo của tài khoản đang đăng nhập
-router.delete('/:id', authMiddleware, requireStaff, deleteNotification);
+// Chỉ ADMIN được gửi thông báo đến tài khoản được chọn.
+router.post(
+  '/',
+  authMiddleware,
+  requireAdmin,
+  sendAdminNotification
+);
 
 module.exports = router;
