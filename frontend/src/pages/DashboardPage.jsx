@@ -94,6 +94,17 @@ function DashboardPage() {
   const [pushBusy, setPushBusy] = useState(false);
   const [pushMessage, setPushMessage] = useState('');
 
+  // Tự ẩn thông báo trạng thái Push sau 3 giây
+  useEffect(() => {
+    if (!pushMessage) return;
+
+    const timeoutId = setTimeout(() => {
+      setPushMessage('');
+    }, 3000);
+
+    return () => clearTimeout(timeoutId);
+  }, [pushMessage]);
+
   useEffect(() => {
     loadDepartments();
   }, []);
@@ -763,36 +774,35 @@ function DashboardPage() {
                   type="button"
                   onClick={handleTogglePush}
                   disabled={!pushSupported || pushBusy}
-                  className={`flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium transition ${
-                    pushSubscribed
-                      ? 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100'
-                      : 'border-amber-300 bg-white text-[#7c3a0a] hover:bg-amber-50'
-                  } disabled:cursor-not-allowed disabled:opacity-50`}
+                  className={`group flex h-10 w-10 shrink-0 items-center justify-center
+                              rounded-lg border shadow-sm
+                              transition-all duration-200 ease-out
+                              hover:-translate-y-0.5 hover:shadow-md
+                              active:translate-y-0 active:scale-95
+                              ${
+                                pushSubscribed
+                                  ? 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100'
+                                  : 'border-amber-300 bg-white text-[#7c3a0a] hover:bg-amber-50'
+                              }
+                              disabled:cursor-not-allowed disabled:opacity-50`}
                   aria-label={
                     pushSubscribed
                       ? 'Tắt thông báo đẩy'
                       : 'Bật thông báo đẩy'
                   }
-                  title={
-                    !pushSupported
-                      ? 'Trình duyệt hoặc môi trường hiện tại không hỗ trợ Push Notification'
-                      : pushSubscribed
-                        ? 'Tắt thông báo đẩy trên thiết bị này'
-                        : 'Bật thông báo đẩy trên thiết bị này'
-                  }
                 >
                   {pushBusy ? (
-                    <span className="text-xs">Đang xử lý...</span>
+                    <LoaderCircle size={19} className="animate-spin" />
                   ) : pushSubscribed ? (
-                    <>
-                      <BellRing size={17} />
-                      <span className="hidden sm:inline">Đang bật</span>
-                    </>
+                    <BellRing
+                      size={19}
+                      className="transition-transform duration-200 group-hover:rotate-[-10deg]"
+                    />
                   ) : (
-                    <>
-                      <BellOff size={17} />
-                      <span className="hidden sm:inline">Bật thông báo</span>
-                    </>
+                    <BellOff
+                      size={19}
+                      className="transition-transform duration-200 group-hover:rotate-[-10deg]"
+                    />
                   )}
                 </button>
 
@@ -822,12 +832,12 @@ function DashboardPage() {
                 <div className="min-w-0">
                   <p className="whitespace-nowrap text-sm font-semibold leading-5 text-[#5c2a06]">
                     {user?.role === 'HEAD'
-                      ? `Trưởng ban ${
-                          user?.department_name?.replace(/^Ban\s/, 'ban ') || ''
-                        }`
-                      : user?.role === 'GUEST'
-                        ? 'Khách'
-                        : 'Quản trị viên'}
+                    ? `Trưởng ban ${
+                        user?.department_name?.replace(/^Ban\s+/i, '') || ''
+                      }`
+                    : user?.role === 'GUEST'
+                      ? 'Quản chúng'
+                      : 'Quản trị viên'}
                   </p>
 
                   <p className="text-right text-xs leading-4 text-[#7c3a0a]">
@@ -860,12 +870,12 @@ function DashboardPage() {
 
                       <p className="mt-1 text-xs text-gray-500">
                         {user?.role === 'HEAD'
-                          ? `Trưởng ban ${
-                              user?.department_name?.replace(/^Ban\s/, 'ban ') || ''
-                            }`
-                          : user?.role === 'GUEST'
-                            ? 'Khách'
-                            : 'Quản trị viên'}
+                        ? `Trưởng ban ${
+                            user?.department_name?.replace(/^Ban\s+/i, '') || ''
+                          }`
+                        : user?.role === 'GUEST'
+                          ? 'Quản chúng'
+                          : 'Quản trị viên'}
                         {' · '}
                         {user?.role}
                       </p>

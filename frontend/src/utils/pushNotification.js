@@ -86,7 +86,7 @@ export async function enablePushNotifications() {
     return {
       success: true,
       subscribed: true,
-      message: 'Đã bật thông báo đẩy cho tài khoản này.',
+      message: 'Đã bật chuông báo cho tài khoản này.',
     };
   } catch (error) {
     console.error('Lỗi bật Push Notification:', error);
@@ -135,7 +135,7 @@ export async function disablePushNotifications() {
     return {
       success: true,
       subscribed: false,
-      message: 'Đã tắt thông báo đẩy cho tài khoản này.',
+      message: 'Đã tắt chuông báo cho tài khoản này.',
     };
   } catch (error) {
     console.error('Lỗi tắt Push Notification:', error);
