@@ -186,6 +186,13 @@ function DeviceDetailPage() {
     return null;
   }
 
+  console.log('VITE_SERVER_URL:', import.meta.env.VITE_SERVER_URL);
+console.log('device.image_url:', device.image_url);
+console.log(
+  'Ảnh đầy đủ:',
+  `${import.meta.env.VITE_SERVER_URL || 'http://localhost:5000'}${device.image_url}`
+);
+
   return (
     <div className="min-h-screen bg-gray-100">
       {/* HEADER */}
