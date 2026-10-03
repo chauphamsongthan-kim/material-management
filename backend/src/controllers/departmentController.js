@@ -46,7 +46,8 @@ async function getDevicesByDepartment(req, res) {
          device_name,
          device_type,
          original_quantity,
-         current_quantity
+         current_quantity,
+         image_url
        FROM devices
        WHERE department_id = ?
        ORDER BY device_id ASC`,

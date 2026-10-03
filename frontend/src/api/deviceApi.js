@@ -1,83 +1,101 @@
-import axiosClient from './axiosClient';
+  import axiosClient from './axiosClient';
 
-export async function getDevicesByDepartment(departmentId) {
-  const response = await axiosClient.get(`/departments/${departmentId}/devices`);
+  export async function getDevicesByDepartment(departmentId) {
+    const response = await axiosClient.get(`/departments/${departmentId}/devices`);
 
-  return response.data;
-}
+    return response.data;
+  }
 
-export async function getDeviceById(deviceId) {
-  const response = await axiosClient.get(`/devices/${deviceId}`);
+  export async function getDeviceById(deviceId) {
+    const response = await axiosClient.get(`/devices/${deviceId}`);
 
-  return response.data;
-}
+    return response.data;
+  }
 
-export async function addDevice(departmentId, deviceData) {
-  const response = await axiosClient.post(
-    `/departments/${departmentId}/devices`,
-    deviceData
-  );
+  export async function addDevice(departmentId, deviceData) {
+    const isFormData = deviceData instanceof FormData;
 
-  return response.data;
-}
-
-export async function borrowDevice(deviceId, borrowData) {
-  const response = await axiosClient.post(
-    `/devices/${deviceId}/borrow`,
-    borrowData
-  );
-
-  return response.data;
-}
-
-export async function getActiveBorrows(deviceId) {
-  const response = await axiosClient.get(
-    `/devices/${deviceId}/active-borrows`
-  );
+    const response = await axiosClient.post(
+      `/departments/${departmentId}/devices`,
+      deviceData,
+      isFormData
+        ? {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          }
+        : {}
+    );
 
   return response.data;
 }
 
-export async function returnDevice(deviceId, returnData) {
-  const response = await axiosClient.post(
-    `/devices/${deviceId}/return`,
-    returnData
-  );
+  export async function borrowDevice(deviceId, borrowData) {
+    const response = await axiosClient.post(
+      `/devices/${deviceId}/borrow`,
+      borrowData
+    );
 
-  return response.data;
-}
+    return response.data;
+  }
 
-export async function getDeviceHistory(deviceId) {
-  const response = await axiosClient.get(
-    `/devices/${deviceId}/history`
-  );
+  export async function getActiveBorrows(deviceId) {
+    const response = await axiosClient.get(
+      `/devices/${deviceId}/active-borrows`
+    );
 
-  return response.data;
-}
+    return response.data;
+  }
 
-export async function updateDevice(deviceId, deviceData) {
-  const response = await axiosClient.put(
-    `/devices/${deviceId}`,
-    deviceData
-  );
+  export async function returnDevice(deviceId, returnData) {
+    const response = await axiosClient.post(
+      `/devices/${deviceId}/return`,
+      returnData
+    );
 
-  return response.data;
-}
+    return response.data;
+  }
 
-export async function deleteDevice(deviceId) {
-  const response = await axiosClient.delete(
-    `/devices/${deviceId}`
-  );
+  export async function getDeviceHistory(deviceId) {
+    const response = await axiosClient.get(
+      `/devices/${deviceId}/history`
+    );
 
-  return response.data;
-}
+    return response.data;
+  }
 
-export async function searchDevices(keyword) {
-  const response = await axiosClient.get('/devices/search', {
-    params: {
-      q: keyword,
-    },
-  });
+  export async function updateDevice(deviceId, deviceData) {
+    const isFormData = deviceData instanceof FormData;
 
-  return response.data;
-}
+    const response = await axiosClient.put(
+      `/devices/${deviceId}`,
+      deviceData,
+      isFormData
+        ? {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          }
+        : {}
+    );
+
+    return response.data;
+  }
+
+  export async function deleteDevice(deviceId) {
+    const response = await axiosClient.delete(
+      `/devices/${deviceId}`
+    );
+
+    return response.data;
+  }
+
+  export async function searchDevices(keyword) {
+    const response = await axiosClient.get('/devices/search', {
+      params: {
+        q: keyword,
+      },
+    });
+
+    return response.data;
+  }

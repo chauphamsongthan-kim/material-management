@@ -1,13 +1,20 @@
+
 // =========================================
 // CONTROLLER: DEVICES
 // =========================================
 
 const { pool } = require('../config/database');
 const { canManageDepartment } = require('../utils/permissions');
+const {
+  saveDeviceImage,
+  deleteDeviceImage,
+} = require('../utils/imageStorage');
 
 // POST /api/departments/:id/devices -> Thêm thiết bị
-// (quyền đã được kiểm tra qua middleware requireManageDepartmentFromParams)
+// Quyền đã được kiểm tra qua middleware requireManageDepartmentFromParams
 async function addDevice(req, res) {
+  let savedImage = null;
+
   try {
     const departmentId = req.params.id;
     const { device_name, device_type, original_quantity, notes = '' } = req.body;
@@ -28,12 +35,35 @@ async function addDevice(req, res) {
       });
     }
 
+    // Lưu và nén ảnh nếu người dùng có tải ảnh lên
+    if (req.file) {
+      savedImage = await saveDeviceImage(req.file);
+    }
+
+    const imageUrl = savedImage ? savedImage.imageUrl : null;
+
     // current_quantity tự động bằng original_quantity khi tạo mới
     const [result] = await pool.query(
       `INSERT INTO devices
-      (department_id, device_name, device_type, original_quantity, current_quantity, notes)
-      VALUES (?, ?, ?, ?, ?, ?)`,
-      [departmentId, device_name, device_type, quantity, quantity, notes]
+      (
+        department_id,
+        device_name,
+        device_type,
+        original_quantity,
+        current_quantity,
+        notes,
+        image_url
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        departmentId,
+        device_name,
+        device_type,
+        quantity,
+        quantity,
+        notes,
+        imageUrl,
+      ]
     );
 
     return res.status(201).json({
@@ -43,7 +73,20 @@ async function addDevice(req, res) {
     });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ success: false, message: 'Lỗi máy chủ.' });
+
+    // Dọn ảnh nếu đã lưu nhưng thêm thiết bị vào DB thất bại
+    if (savedImage) {
+      try {
+        await deleteDeviceImage(savedImage.imageUrl);
+      } catch (cleanupError) {
+        console.error('Không thể xóa ảnh vừa tải lên:', cleanupError);
+      }
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi máy chủ.',
+    });
   }
 }
 
@@ -61,26 +104,44 @@ async function getDeviceById(req, res) {
     );
 
     if (rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Không tìm thấy thiết bị.' });
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy thiết bị.',
+      });
     }
 
-    return res.json({ success: true, data: rows[0] });
+    return res.json({
+      success: true,
+      data: rows[0],
+    });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ success: false, message: 'Lỗi máy chủ.' });
+
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi máy chủ.',
+    });
   }
 }
 
 // PUT /api/devices/:id -> Sửa thiết bị
 async function updateDevice(req, res) {
+  let savedImage = null;
+
   try {
     const deviceId = req.params.id;
     const { device_name, device_type, original_quantity, notes } = req.body;
 
-    const [rows] = await pool.query('SELECT * FROM devices WHERE device_id = ?', [deviceId]);
+    const [rows] = await pool.query(
+      'SELECT * FROM devices WHERE device_id = ?',
+      [deviceId]
+    );
 
     if (rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Không tìm thấy thiết bị.' });
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy thiết bị.',
+      });
     }
 
     const device = rows[0];
@@ -107,6 +168,7 @@ async function updateDevice(req, res) {
           message: 'Không thể sửa Số lượng gốc vì vẫn còn thiết bị chưa được trả.',
         });
       }
+
       const quantity = Number(original_quantity);
 
       if (!Number.isInteger(quantity) || quantity <= 0) {
@@ -115,33 +177,79 @@ async function updateDevice(req, res) {
           message: 'Số lượng gốc phải lớn hơn 0.',
         });
       }
+
       newOriginalQuantity = quantity;
       newCurrentQuantity = quantity;
     }
 
-    const newDeviceName = device_name !== undefined ? device_name : device.device_name;
-    const newDeviceType = device_type !== undefined ? device_type : device.device_type;
-    const newNotes = notes !== undefined ? notes : device.notes;
+    const newDeviceName =
+      device_name !== undefined ? device_name : device.device_name;
+
+    const newDeviceType =
+      device_type !== undefined ? device_type : device.device_type;
+
+    const newNotes =
+      notes !== undefined ? notes : device.notes;
+
+    // Chỉ lưu ảnh mới khi người dùng có chọn ảnh
+    if (req.file) {
+      savedImage = await saveDeviceImage(req.file);
+    }
+
+    // Không chọn ảnh mới thì giữ nguyên ảnh hiện tại
+    const newImageUrl = savedImage
+      ? savedImage.imageUrl
+      : device.image_url;
 
     await pool.query(
       `UPDATE devices
-      SET device_name = ?, device_type = ?, original_quantity = ?,
-          current_quantity = ?, notes = ?
-      WHERE device_id = ?`,
+       SET device_name = ?,
+           device_type = ?,
+           original_quantity = ?,
+           current_quantity = ?,
+           notes = ?,
+           image_url = ?
+       WHERE device_id = ?`,
       [
         newDeviceName,
         newDeviceType,
         newOriginalQuantity,
         newCurrentQuantity,
         newNotes,
+        newImageUrl,
         deviceId,
       ]
     );
 
-    return res.json({ success: true, message: 'Cập nhật thiết bị thành công.' });
+    // Xóa ảnh cũ sau khi DB đã cập nhật thành công
+    if (savedImage && device.image_url) {
+      try {
+        await deleteDeviceImage(device.image_url);
+      } catch (cleanupError) {
+        console.error('Không thể xóa ảnh cũ:', cleanupError);
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: 'Cập nhật thiết bị thành công.',
+    });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ success: false, message: 'Lỗi máy chủ.' });
+
+    // Dọn ảnh mới nếu cập nhật DB thất bại
+    if (savedImage) {
+      try {
+        await deleteDeviceImage(savedImage.imageUrl);
+      } catch (cleanupError) {
+        console.error('Không thể xóa ảnh mới:', cleanupError);
+      }
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi máy chủ.',
+    });
   }
 }
 
@@ -150,10 +258,16 @@ async function deleteDevice(req, res) {
   try {
     const deviceId = req.params.id;
 
-    const [rows] = await pool.query('SELECT * FROM devices WHERE device_id = ?', [deviceId]);
+    const [rows] = await pool.query(
+      'SELECT * FROM devices WHERE device_id = ?',
+      [deviceId]
+    );
 
     if (rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Không tìm thấy thiết bị.' });
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy thiết bị.',
+      });
     }
 
     const device = rows[0];
@@ -173,16 +287,34 @@ async function deleteDevice(req, res) {
       });
     }
 
-    // ON DELETE CASCADE sẽ tự xóa toàn bộ device_history liên quan
-    await pool.query('DELETE FROM devices WHERE device_id = ?', [deviceId]);
+    // Xóa thiết bị trong DB trước
+    await pool.query(
+      'DELETE FROM devices WHERE device_id = ?',
+      [deviceId]
+    );
 
-    return res.json({ success: true, message: 'Xóa thiết bị thành công.' });
+    // Xóa ảnh liên quan; lỗi xóa ảnh không làm thay đổi kết quả DB
+    if (device.image_url) {
+      try {
+        await deleteDeviceImage(device.image_url);
+      } catch (cleanupError) {
+        console.error('Không thể xóa ảnh thiết bị:', cleanupError);
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: 'Xóa thiết bị thành công.',
+    });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ success: false, message: 'Lỗi máy chủ.' });
+
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi máy chủ.',
+    });
   }
 }
-
 
 // GET /api/devices/search?q= -> Tìm kiếm thiết bị trên toàn bộ 6 ban
 async function searchDevices(req, res) {
@@ -199,10 +331,17 @@ async function searchDevices(req, res) {
       [`%${q}%`, `%${q}%`]
     );
 
-    return res.json({ success: true, data: rows });
+    return res.json({
+      success: true,
+      data: rows,
+    });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ success: false, message: 'Lỗi máy chủ.' });
+
+    return res.status(500).json({
+      success: false,
+      message: 'Lỗi máy chủ.',
+    });
   }
 }
 

@@ -1,10 +1,6 @@
-import { useState } from 'react';
-import {
-  X,
-  Plus,
-  Package,
-  Layers3,
-} from 'lucide-react';
+
+import { useEffect, useState } from 'react';
+import { X, Plus, Package, Layers3, ImagePlus } from 'lucide-react';
 
 function AddDeviceModal({
   department,
@@ -19,6 +15,53 @@ function AddDeviceModal({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState('');
+
+  useEffect(() => {
+    return () => {
+      if (imagePreview) {
+        URL.revokeObjectURL(imagePreview);
+      }
+    };
+  }, [imagePreview]);
+
+  const handleImageChange = (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      setImageFile(null);
+      setImagePreview('');
+      return;
+    }
+
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      setError('Chỉ chấp nhận ảnh JPG, PNG hoặc WebP.');
+      event.target.value = '';
+      setImageFile(null);
+      setImagePreview('');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Kích thước ảnh không được vượt quá 5 MB.');
+      event.target.value = '';
+      setImageFile(null);
+      setImagePreview('');
+      return;
+    }
+
+    setError('');
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -47,14 +90,28 @@ function AddDeviceModal({
     try {
       setLoading(true);
 
+      let deviceData = {
+        device_name: name,
+        device_type: type,
+        original_quantity: quantity,
+        notes: notes.trim(),
+      };
+
+      if (imageFile) {
+        const formData = new FormData();
+
+        formData.append('device_name', name);
+        formData.append('device_type', type);
+        formData.append('original_quantity', String(quantity));
+        formData.append('notes', notes.trim());
+        formData.append('image', imageFile);
+
+        deviceData = formData;
+      }
+
       const result = await addDevice(
         department.department_id,
-        {
-          device_name: name,
-          device_type: type,
-          original_quantity: quantity,
-          notes: notes.trim(),
-        }
+        deviceData
       );
 
       if (!result.success) {
@@ -79,10 +136,10 @@ function AddDeviceModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
 
         {/* HEADER */}
-        <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5">
+        <div className="flex shrink-0 items-start justify-between border-b border-gray-100 px-6 py-5">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
               <Plus size={22} />
@@ -122,10 +179,12 @@ function AddDeviceModal({
         </div>
 
         {/* FORM */}
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-5 px-6 py-6"
-        >
+          <form
+            onSubmit={handleSubmit}
+            className="flex min-h-0 flex-1 flex-col overflow-hidden"
+          >
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-6">
+
           {/* TÊN THIẾT BỊ */}
           <div>
             <label className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-700">
@@ -210,21 +269,88 @@ function AddDeviceModal({
               Số lượng hiện tại sẽ được tự động đặt bằng số lượng gốc.
             </p>
           </div>
-          {/* GHI CHÚ */}
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-gray-700">
-                Ghi chú
-              </label>
 
-              <textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                placeholder="Nhập ghi chú cho thiết bị (không bắt buộc)"
-                rows={3}
+          {/* ẢNH THIẾT BỊ */}
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-gray-700">
+              Ảnh thiết bị
+              <span className="ml-1 font-normal text-gray-400">
+                (Không bắt buộc)
+              </span>
+            </label>
+
+            <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 px-4 py-5 transition hover:border-blue-400 hover:bg-blue-50">
+              {imagePreview ? (
+                <img
+                  src={imagePreview}
+                  alt="Xem trước ảnh thiết bị"
+                  className="mb-3 h-36 w-full rounded-md object-contain"
+                />
+              ) : (
+                <>
+                  <ImagePlus
+                    size={32}
+                    className="mb-2 text-gray-400"
+                  />
+
+                  <span className="text-sm text-gray-600">
+                    Nhấn để chọn ảnh thiết bị
+                  </span>
+
+                  <span className="mt-1 text-xs text-gray-400">
+                    JPG, PNG hoặc WebP · Tối đa 5 MB
+                  </span>
+                </>
+              )}
+
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleImageChange}
                 disabled={loading}
-                className="w-full resize-y rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 hover:border-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:cursor-not-allowed disabled:bg-gray-100"
+                className="hidden"
               />
-            </div>
+            </label>
+
+            {imagePreview && (
+              <div className="mt-2 flex items-center justify-between">
+                <span className="truncate text-xs text-gray-500">
+                  {imageFile?.name}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImageFile(null);
+                    setImagePreview('');
+                  }}
+                  disabled={loading}
+                  className="ml-3 shrink-0 text-sm text-red-600 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Xóa ảnh
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* GHI CHÚ */}
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-gray-700">
+              Ghi chú
+            </label>
+
+            <textarea
+              value={notes}
+              onChange={(event) => {
+                setNotes(event.target.value);
+                setError('');
+              }}
+              placeholder="Nhập ghi chú cho thiết bị (không bắt buộc)"
+              rows={3}
+              disabled={loading}
+              className="w-full resize-y rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 hover:border-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:cursor-not-allowed disabled:bg-gray-100"
+            />
+          </div>
 
           {/* ERROR */}
           {error && (
@@ -238,9 +364,10 @@ function AddDeviceModal({
               </p>
             </div>
           )}
+          </div>
 
           {/* FOOTER */}
-          <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-5">
+          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 bg-white px-6 py-4">
             <button
               type="button"
               onClick={onClose}

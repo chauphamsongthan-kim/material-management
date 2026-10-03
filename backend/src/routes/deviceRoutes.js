@@ -14,6 +14,8 @@ const { getDeviceHistory } = require('../controllers/historyController');
 
 const authMiddleware = require('../middleware/authMiddleware');
 
+const upload = require('../middleware/uploadMiddleware');
+
 // Lưu ý: route /search phải khai báo TRƯỚC route /:id
 // để tránh Express hiểu nhầm "search" là một device_id.
 
@@ -24,7 +26,12 @@ router.get('/search', authMiddleware, searchDevices);
 router.get('/:id', authMiddleware, getDeviceById);
 
 // PUT /api/devices/:id -> Sửa thiết bị (kiểm tra quyền bên trong controller)
-router.put('/:id', authMiddleware, updateDevice);
+router.put(
+  '/:id',
+  authMiddleware,
+  upload.single('image'),
+  updateDevice
+);
 
 // DELETE /api/devices/:id -> Xóa thiết bị (kiểm tra quyền bên trong controller)
 router.delete('/:id', authMiddleware, deleteDevice);

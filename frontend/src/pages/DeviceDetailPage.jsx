@@ -225,11 +225,32 @@ function DeviceDetailPage() {
       <div className="border-b border-gray-200 px-6 py-5">
         <div className="flex items-center gap-6">
 
-          {/* Ô ảnh / logo tạm thời */}
-          <div className="flex h-40 w-40 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-gray-50">
-            <span className="text-sm text-gray-400">
-              Ảnh thiết bị
-            </span>
+          {/* ẢNH THIẾT BỊ */}
+          <div className="relative flex h-40 w-40 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+            {!device.image_url && (
+              <Package
+                size={48}
+                className="text-gray-300"
+              />
+            )}
+
+            {device.image_url && (
+              <>
+                <Package
+                  size={48}
+                  className="absolute text-gray-300"
+                />
+
+                <img
+                  src={`${import.meta.env.VITE_SERVER_URL || 'http://localhost:5000'}${device.image_url}`}
+                  alt={device.device_name}
+                  className="relative z-10 h-full w-full object-contain"
+                  onError={(event) => {
+                    event.currentTarget.style.display = 'none';
+                  }}
+                />
+              </>
+            )}
           </div>
 
           {/* Thông tin thiết bị */}

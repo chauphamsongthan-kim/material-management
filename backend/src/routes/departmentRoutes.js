@@ -8,6 +8,9 @@ const {
 const { addDevice } = require('../controllers/deviceController');
 
 const authMiddleware = require('../middleware/authMiddleware');
+
+const upload = require('../middleware/uploadMiddleware');
+
 const {
   requireManageDepartmentFromParams,
 } = require('../middleware/permissionMiddleware');
@@ -19,6 +22,12 @@ router.get('/', authMiddleware, getDepartments);
 router.get('/:id/devices', authMiddleware, getDevicesByDepartment);
 
 // POST /api/departments/:id/devices -> Thêm thiết bị (chỉ ADMIN hoặc HEAD đúng ban)
-router.post('/:id/devices', authMiddleware, requireManageDepartmentFromParams, addDevice);
+router.post(
+  '/:id/devices',
+  authMiddleware,
+  requireManageDepartmentFromParams,
+  upload.single('image'),
+  addDevice
+);
 
 module.exports = router;
