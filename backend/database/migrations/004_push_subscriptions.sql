@@ -1,5 +1,5 @@
 -- Migration 004: Store browser push subscriptions
--- Supports multiple devices per user.
+-- Supports multiple devices per user and per-user push preferences.
 
 CREATE TABLE IF NOT EXISTS push_subscriptions (
     subscription_id INT NOT NULL AUTO_INCREMENT,
@@ -8,12 +8,13 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
     endpoint_hash CHAR(64) NOT NULL,
     p256dh VARCHAR(255) NOT NULL,
     auth VARCHAR(255) NOT NULL,
+    push_enabled TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         ON UPDATE CURRENT_TIMESTAMP,
 
     PRIMARY KEY (subscription_id),
-    UNIQUE KEY uq_push_endpoint_hash (endpoint_hash),
+    UNIQUE KEY uq_push_user_endpoint (user_id, endpoint_hash),
     KEY idx_push_user_id (user_id),
 
     CONSTRAINT fk_push_subscriptions_user

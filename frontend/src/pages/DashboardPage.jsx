@@ -1,12 +1,16 @@
+
 import { useEffect, useState } from 'react';
 import {
   Search,
   LogOut,
   KeyRound,
-  Bell,
   BellRing,
   BellOff,
   X,
+  ChevronDown,
+  Users,
+  Send,
+  LoaderCircle,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -19,19 +23,22 @@ import {
   searchDevices,
 } from '../api/deviceApi';
 
+import { getUsers } from '../api/userApi';
+
 import DepartmentCard from '../components/departments/DepartmentCard';
 import DeviceTable from '../components/devices/DeviceTable';
 
 import AddDeviceModal from '../components/devices/AddDeviceModal';
 import ChangePasswordModal from '../components/common/ChangePasswordModal';
+
 import {
   getNotifications,
   markNotificationRead,
   deleteNotification,
+  sendAdminNotification,
 } from '../api/notificationApi';
 
 import {
-  isPushSupported,
   enablePushNotifications,
   disablePushNotifications,
   getPushSubscriptionStatus,
@@ -46,7 +53,6 @@ function DashboardPage() {
   const [error, setError] = useState('');
 
   const [search, setSearch] = useState('');
-
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -56,14 +62,24 @@ function DashboardPage() {
 
   // Danh sách thiết bị của Ban đang chọn
   const [devices, setDevices] = useState([]);
-
-  // Trạng thái tải thiết bị
   const [loadingDevices, setLoadingDevices] = useState(false);
 
   const [showAddDeviceModal, setShowAddDeviceModal] = useState(false);
-
   const [showChangePasswordModal, setShowChangePasswordModal] =
     useState(false);
+
+  // Menu tài khoản
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
+
+  // Gửi thông báo ADMIN
+  const [showSendNotification, setShowSendNotification] = useState(false);
+  const [notificationRecipients, setNotificationRecipients] = useState([]);
+  const [notificationTitle, setNotificationTitle] = useState('');
+  const [notificationMessage, setNotificationMessage] = useState('');
+  const [selectedRecipientIds, setSelectedRecipientIds] = useState([]);
+  const [sendingNotification, setSendingNotification] = useState(false);
+  const [sendNotificationError, setSendNotificationError] = useState('');
+  const [sendNotificationSuccess, setSendNotificationSuccess] = useState('');
 
   // Trạng thái thông báo
   const [notifications, setNotifications] = useState([]);
@@ -85,15 +101,14 @@ function DashboardPage() {
   async function loadDepartments() {
     try {
       setLoading(true);
+      setError('');
 
       const result = await getDepartments();
 
       if (result.success) {
-        setDepartments(result.data);
+        setDepartments(result.data || []);
       } else {
-        setError(
-          result.message || 'Không thể tải danh sách Ban.'
-        );
+        setError(result.message || 'Không thể tải danh sách Ban.');
       }
     } catch (err) {
       setError(
@@ -104,193 +119,313 @@ function DashboardPage() {
       setLoading(false);
     }
   }
+
   // Tải thông báo của tài khoản đang đăng nhập
-const loadNotifications = async () => {
-  try {
-    setLoadingNotifications(true);
-    setNotificationError('');
+  const loadNotifications = async () => {
+    try {
+      setLoadingNotifications(true);
+      setNotificationError('');
 
-    const result = await getNotifications();
+      const result = await getNotifications();
 
-    if (result.success) {
-      setNotifications(result.data || []);
-      setUnreadCount(Number(result.unread_count) || 0);
-    } else {
+      if (result.success) {
+        setNotifications(result.data || []);
+        setUnreadCount(Number(result.unread_count) || 0);
+      } else {
+        setNotificationError(
+          result.message || 'Không thể tải thông báo.'
+        );
+      }
+    } catch (err) {
+      console.error('Lỗi tải thông báo:', err);
       setNotificationError(
-        result.message || 'Không thể tải thông báo.'
+        err.response?.data?.message || 'Không thể tải thông báo.'
+      );
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  // Kiểm tra khả năng hỗ trợ và trạng thái Push riêng của tài khoản
+  useEffect(() => {
+    let cancelled = false;
+
+    // Tránh hiển thị nhầm trạng thái của tài khoản trước đó
+    setPushSubscribed(false);
+    setPushMessage('');
+
+    async function checkPushStatus() {
+      const status = await getPushSubscriptionStatus();
+
+      if (cancelled) return;
+
+      setPushSupported(status.supported);
+      setPushSubscribed(status.subscribed);
+
+      if (status.message) {
+        setPushMessage(status.message);
+      }
+    }
+
+    checkPushStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.user_id]);
+
+  // Bật hoặc tắt Push Notification
+  const handleTogglePush = async () => {
+    if (pushBusy) return;
+
+    setPushBusy(true);
+    setPushMessage('');
+
+    try {
+      if (pushSubscribed) {
+        const result = await disablePushNotifications();
+
+        if (result.success) {
+          setPushSubscribed(false);
+        }
+
+        setPushMessage(result.message);
+      } else {
+        const result = await enablePushNotifications();
+
+        if (result.success) {
+          setPushSubscribed(true);
+        }
+
+        setPushMessage(result.message);
+      }
+    } catch (err) {
+      console.error('Lỗi thay đổi Push Notification:', err);
+      setPushMessage(
+        'Đã xảy ra lỗi khi thay đổi cài đặt thông báo.'
+      );
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  // Tự tải thông báo khi vào Dashboard và cập nhật định kỳ
+  useEffect(() => {
+    if (!user?.user_id) {
+      setNotifications([]);
+      setUnreadCount(0);
+      setShowNotifications(false);
+      return;
+    }
+
+    loadNotifications();
+
+    const intervalId = setInterval(() => {
+      loadNotifications();
+    }, 15000);
+
+    return () => clearInterval(intervalId);
+  }, [user?.user_id, user?.role]);
+
+  // Mở modal gửi thông báo và tải danh sách tài khoản
+  const openSendNotification = async () => {
+    setShowAccountMenu(false);
+    setSendNotificationError('');
+    setSendNotificationSuccess('');
+    setNotificationTitle('');
+    setNotificationMessage('');
+    setSelectedRecipientIds([]);
+    setNotificationRecipients([]);
+    setShowSendNotification(true);
+
+    try {
+      const result = await getUsers();
+
+      if (result.success) {
+        setNotificationRecipients(result.data || []);
+      } else {
+        setSendNotificationError(
+          result.message || 'Không thể tải danh sách tài khoản.'
+        );
+      }
+    } catch (err) {
+      setSendNotificationError(
+        err.response?.data?.message ||
+          'Không thể tải danh sách tài khoản.'
       );
     }
-  } catch (err) {
-    console.error('Lỗi tải thông báo:', err);
-    setNotificationError(
-      err.response?.data?.message || 'Không thể tải thông báo.'
-    );
-  } finally {
-    setLoadingNotifications(false);
-  }
-};
-
-
-// Kiểm tra khả năng hỗ trợ và trạng thái Push riêng của tài khoản
-useEffect(() => {
-  let cancelled = false;
-
-  // Tránh hiển thị nhầm trạng thái của tài khoản trước đó
-  setPushSubscribed(false);
-  setPushMessage('');
-
-  async function checkPushStatus() {
-    const status = await getPushSubscriptionStatus();
-
-    if (cancelled) return;
-
-    setPushSupported(status.supported);
-    setPushSubscribed(status.subscribed);
-
-    if (status.message) {
-      setPushMessage(status.message);
-    }
-  }
-
-  checkPushStatus();
-
-  return () => {
-    cancelled = true;
   };
-}, [user?.user_id]);
 
-// Bật hoặc tắt Push Notification
-const handleTogglePush = async () => {
-  if (pushBusy) return;
+  // Chọn hoặc bỏ chọn một người nhận
+  const handleRecipientChange = (userId, checked) => {
+    setSelectedRecipientIds((previous) =>
+      checked
+        ? previous.includes(userId)
+          ? previous
+          : [...previous, userId]
+        : previous.filter((id) => id !== userId)
+    );
+  };
 
-  setPushBusy(true);
-  setPushMessage('');
+  // Chọn hoặc bỏ chọn tất cả người nhận
+  const handleSelectAllRecipients = (checked) => {
+    setSelectedRecipientIds(
+      checked
+        ? notificationRecipients.map((account) => account.user_id)
+        : []
+    );
+  };
 
-  try {
-    if (pushSubscribed) {
-      const result = await disablePushNotifications();
+  // Gửi thông báo ADMIN
+  const handleSendNotification = async (e) => {
+    e.preventDefault();
+    setSendNotificationError('');
+    setSendNotificationSuccess('');
 
-      if (result.success) {
-        setPushSubscribed(false);
-      }
+    const title = notificationTitle.trim();
+    const message = notificationMessage.trim();
 
-      setPushMessage(result.message);
-    } else {
-      const result = await enablePushNotifications();
-
-      if (result.success) {
-        setPushSubscribed(true);
-      }
-
-      setPushMessage(result.message);
+    if (!title || !message) {
+      setSendNotificationError(
+        'Vui lòng nhập tiêu đề và nội dung thông báo.'
+      );
+      return;
     }
-  } catch (err) {
-    console.error('Lỗi thay đổi Push Notification:', err);
-    setPushMessage('Đã xảy ra lỗi khi thay đổi cài đặt thông báo.');
-  } finally {
-    setPushBusy(false);
-  }
-};
 
-// Tự tải thông báo khi vào Dashboard và cập nhật định kỳ
-useEffect(() => {
-  if (!user?.user_id) {
-    setNotifications([]);
-    setUnreadCount(0);
-    setShowNotifications(false);
-    return;
-  }
+    if (title.length > 200) {
+      setSendNotificationError(
+        'Tiêu đề không được vượt quá 200 ký tự.'
+      );
+      return;
+    }
 
-  loadNotifications();
+    if (message.length > 500) {
+      setSendNotificationError(
+        'Nội dung không được vượt quá 500 ký tự.'
+      );
+      return;
+    }
 
-  const intervalId = setInterval(() => {
-    loadNotifications();
-  }, 15000);
+    if (selectedRecipientIds.length === 0) {
+      setSendNotificationError(
+        'Vui lòng chọn ít nhất một người nhận.'
+      );
+      return;
+    }
 
-  return () => clearInterval(intervalId);
-}, [user?.user_id, user?.role]);
+    try {
+      setSendingNotification(true);
 
-// Đánh dấu thông báo đã đọc
-const handleNotificationClick = async (notification) => {
-  try {
-    if (!notification.is_read) {
-      const result = await markNotificationRead(
+      const result = await sendAdminNotification({
+        title,
+        message,
+        recipient_ids: selectedRecipientIds,
+      });
+
+      if (!result.success) {
+        setSendNotificationError(
+          result.message || 'Không thể gửi thông báo.'
+        );
+        return;
+      }
+
+      setShowSendNotification(false);
+      setNotificationTitle('');
+      setNotificationMessage('');
+      setSelectedRecipientIds([]);
+
+      setSendNotificationSuccess('Đã gửi thông báo thành công.');
+      await loadNotifications();
+    } catch (err) {
+      setSendNotificationError(
+        err.response?.data?.message || 'Không thể gửi thông báo.'
+      );
+    } finally {
+      setSendingNotification(false);
+    }
+  };
+
+  // Đánh dấu thông báo đã đọc
+  const handleNotificationClick = async (notification) => {
+    try {
+      if (!notification.is_read) {
+        const result = await markNotificationRead(
+          notification.notification_id
+        );
+
+        if (!result.success) {
+          setNotificationError(
+            result.message || 'Không thể đánh dấu đã đọc.'
+          );
+          return;
+        }
+
+        setNotifications((previous) =>
+          previous.map((item) =>
+            item.notification_id === notification.notification_id
+              ? { ...item, is_read: 1 }
+              : item
+          )
+        );
+
+        setUnreadCount((previous) => Math.max(0, previous - 1));
+      }
+
+      setShowNotifications(false);
+
+      if (notification.device_id) {
+        navigate(`/devices/${notification.device_id}`);
+      }
+    } catch (err) {
+      console.error('Lỗi cập nhật thông báo:', err);
+      setNotificationError(
+        err.response?.data?.message ||
+          'Không thể cập nhật thông báo.'
+      );
+    }
+  };
+
+  // Xóa thông báo
+  const handleDeleteNotification = async (notification) => {
+    try {
+      setNotificationError('');
+
+      const result = await deleteNotification(
         notification.notification_id
       );
 
       if (!result.success) {
         setNotificationError(
-          result.message || 'Không thể đánh dấu đã đọc.'
+          result.message || 'Không thể xóa thông báo.'
         );
         return;
       }
 
+      // Xóa thông báo khỏi danh sách trên giao diện
       setNotifications((previous) =>
-        previous.map((item) =>
-          item.notification_id === notification.notification_id
-            ? { ...item, is_read: 1 }
-            : item
+        previous.filter(
+          (item) =>
+            item.notification_id !== notification.notification_id
         )
       );
 
-      setUnreadCount((previous) => Math.max(0, previous - 1));
-    }
-
-    setShowNotifications(false);
-
-    if (notification.device_id) {
-      navigate(`/devices/${notification.device_id}`);
-    }
-  } catch (err) {
-    console.error('Lỗi cập nhật thông báo:', err);
-    setNotificationError(
-      err.response?.data?.message ||
-        'Không thể cập nhật thông báo.'
-    );
-  }
-};
-
-  // Xóa thông báo
-const handleDeleteNotification = async (notification) => {
-  try {
-    setNotificationError('');
-
-    const result = await deleteNotification(
-      notification.notification_id
-    );
-
-    if (!result.success) {
+      // Nếu thông báo chưa đọc, giảm số lượng chưa đọc
+      if (
+        notification.is_read === false ||
+        notification.is_read === 0
+      ) {
+        setUnreadCount((previous) => Math.max(0, previous - 1));
+      }
+    } catch (err) {
+      console.error('Lỗi xóa thông báo:', err);
       setNotificationError(
-        result.message || 'Không thể xóa thông báo.'
+        err.response?.data?.message ||
+          'Không thể xóa thông báo.'
       );
-      return;
     }
+  };
 
-    // Xóa thông báo khỏi danh sách trên giao diện
-    setNotifications((previous) =>
-      previous.filter(
-        (item) =>
-          item.notification_id !== notification.notification_id
-      )
-    );
-
-    // Nếu thông báo chưa đọc, giảm số lượng chưa đọc
-    if (
-      notification.is_read === false ||
-      notification.is_read === 0
-    ) {
-      setUnreadCount((previous) => Math.max(0, previous - 1));
-    }
-  } catch (err) {
-    console.error('Lỗi xóa thông báo:', err);
-
-    setNotificationError(
-      err.response?.data?.message ||
-        'Không thể xóa thông báo.'
-    );
-  }
-};
-
+  // Tìm kiếm thiết bị
   const handleSearch = async (keyword) => {
     setSearch(keyword);
 
@@ -324,6 +459,7 @@ const handleDeleteNotification = async (notification) => {
     navigate('/login');
   };
 
+  // Chọn Ban và tải danh sách thiết bị
   const handleDepartmentClick = async (department) => {
     try {
       setSelectedDepartment(department);
@@ -339,13 +475,11 @@ const handleDeleteNotification = async (notification) => {
         setDevices(result.data || []);
       } else {
         setError(
-          result.message ||
-            'Không thể tải danh sách thiết bị.'
+          result.message || 'Không thể tải danh sách thiết bị.'
         );
       }
     } catch (err) {
       console.error('Lỗi tải thiết bị:', err);
-
       setError(
         err.response?.data?.message ||
           'Không thể tải danh sách thiết bị.'
@@ -359,10 +493,8 @@ const handleDeleteNotification = async (notification) => {
 
   return (
     <div className="relative min-h-screen overflow-hidden">
-
       {/* DASHBOARD BACKGROUND */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-
         {/* Nền vàng thuần */}
         <div className="absolute inset-0 bg-[#FFFF00]/5" />
 
@@ -372,15 +504,11 @@ const handleDeleteNotification = async (notification) => {
         <div className="absolute -bottom-40 -right-40 h-[650px] w-[650px] rounded-full bg-[#FFFF00]/20 blur-3xl" />
 
         <div className="absolute left-1/2 top-1/2 h-[600px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#FFFF00]/15 blur-3xl" />
-
       </div>
-
-      {/* HEADER */}
 
       {/* HEADER */}
       <header className="border-b border-amber-700/40 bg-[linear-gradient(to_bottom,#fdc82f,#f0b10e)] shadow-md">
         <div className="flex w-full flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:px-6">
-
           {/* Logo + Tên hệ thống */}
           <div className="flex w-full min-w-0 shrink-0 items-center gap-3 lg:w-auto">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white p-1.5 shadow-md ring-2 ring-white/80">
@@ -403,9 +531,8 @@ const handleDeleteNotification = async (notification) => {
           </div>
 
           {/* Search */}
-          <div className="relative block w-full min-w-0 max-w-xl flex-1">
+          <div className="relative block w-full min-w-0 flex-1 lg:max-w-xl">
             <div className="relative">
-
               <Search
                 size={18}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a16207]"
@@ -414,9 +541,7 @@ const handleDeleteNotification = async (notification) => {
               <input
                 type="text"
                 value={search}
-                onChange={(e) =>
-                  handleSearch(e.target.value)
-                }
+                onChange={(e) => handleSearch(e.target.value)}
                 placeholder="Tìm kiếm thiết bị..."
                 className="w-full rounded-lg border border-amber-200 bg-[#fffaf0] py-2.5 pl-10 pr-4 text-[#5c2a06] placeholder:text-[#a16207] outline-none transition focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-200"
               />
@@ -425,19 +550,17 @@ const handleDeleteNotification = async (notification) => {
             {/* SEARCH RESULTS */}
             {showSearchResults && (
               <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-96 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
-
                 {searching && (
                   <div className="p-4 text-center text-sm text-gray-500">
                     Đang tìm kiếm...
                   </div>
                 )}
 
-                {!searching &&
-                  searchResults.length === 0 && (
-                    <div className="p-4 text-center text-sm text-gray-500">
-                      Không tìm thấy thiết bị.
-                    </div>
-                  )}
+                {!searching && searchResults.length === 0 && (
+                  <div className="p-4 text-center text-sm text-gray-500">
+                    Không tìm thấy thiết bị.
+                  </div>
+                )}
 
                 {!searching &&
                   searchResults.map((device) => (
@@ -447,9 +570,7 @@ const handleDeleteNotification = async (notification) => {
                       onClick={() => {
                         setShowSearchResults(false);
                         setSearch('');
-                        navigate(
-                          `/devices/${device.device_id}`
-                        );
+                        navigate(`/devices/${device.device_id}`);
                       }}
                       className="block w-full border-b border-gray-100 px-4 py-3 text-left transition hover:bg-gray-50"
                     >
@@ -471,163 +592,169 @@ const handleDeleteNotification = async (notification) => {
           </div>
 
           {/* USER + ACTIONS */}
-          <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 lg:w-auto lg:flex-nowrap lg:gap-3">
-            
-            
-            {/* Thông tin tài khoản */}
-            <div className="mr-2 text-right">
-              <p className="font-semibold text-[#5c2a06]">
-                {user?.role === 'HEAD'
-                ? `Trưởng ban ${
-                    user?.department_name?.replace(
-                      /^Ban\s/,
-                      'ban '
-                    ) || ''
-                  }`
-                : user?.role === 'GUEST'
-                  ? 'Khách'
-                  : 'Quản trị viên'}
-              </p>
+          <div className="flex w-full min-w-0 shrink-0 flex-wrap items-center justify-end gap-2 lg:w-auto lg:flex-nowrap lg:gap-2">
+            {/* NOTIFICATIONS - ADMIN, HEAD và GUEST */}
+                {user?.user_id && (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextState = !showNotifications;
+                        setShowNotifications(nextState);
+                        setShowAccountMenu(false);
 
-              <p className="text-sm text-[#7c3a0a]">
-                {user?.role}
-              </p>
-            </div>
+                        if (nextState) {
+                          loadNotifications();
+                        }
+                      }}
+                      className="group relative flex h-10 w-10 shrink-0
+                                items-center justify-center rounded-lg
+                                bg-blue-600 text-white shadow-sm
+                                transition-all duration-200 ease-out
+                                hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-lg
+                                active:translate-y-0 active:scale-95"
+                      aria-label="Thông báo"
+                      title="Thông báo"
+                    >
+                      <img
+                        src="/icons/mailbox.png"
+                        alt=""
+                        className="h-8 w-8 object-contain
+                                  transition-transform duration-300 ease-out
+                                  group-hover:scale-110 group-hover:rotate-[-8deg]
+                                  group-active:rotate-6"
+                      />
 
-{/* NOTIFICATIONS - ADMIN, HEAD và GUEST */}
-{user?.user_id && (
-    <div className="relative">
-            <button
-              type="button"
-              onClick={() => {
-                const nextState = !showNotifications;
-                setShowNotifications(nextState);
-
-                if (nextState) {
-                  loadNotifications();
-                }
-              }}
-              className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-amber-300 bg-white text-[#7c3a0a] transition hover:bg-amber-50"
-              aria-label="Thông báo"
-              title="Thông báo"
-            >
-              <Bell size={20} />
-
-              {unreadCount > 0 && (
-                <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-xs font-bold text-white">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
-            </button>
-
-            {showNotifications && (
-              <>
-                <button
-                  type="button"
-                  aria-label="Đóng danh sách thông báo"
-                  className="fixed inset-0 z-40 cursor-default"
-                  onClick={() => setShowNotifications(false)}
-                />
-
-                <div className="absolute right-0 top-full z-50 mt-2 w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-gray-200 bg-white text-left shadow-xl">
-                  <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
-                    <h3 className="whitespace-nowrap font-semibold text-gray-800">
-                      Thông báo
-                    </h3>
-
-                    <span className="whitespace-nowrap text-xs text-gray-500">
-                      {unreadCount} chưa đọc
-                    </span>
-                  </div>
-
-                  {loadingNotifications && notifications.length === 0 && (
-                    <div className="p-5 text-center text-sm text-gray-500">
-                      Đang tải thông báo...
-                    </div>
-                  )}
-
-                  {notificationError && (
-                    <div className="p-3 text-sm text-red-600">
-                      {notificationError}
-                    </div>
-                  )}
-
-                  {!loadingNotifications && notifications.length === 0 && (
-                    <div className="p-6 text-center text-sm text-gray-500">
-                      Bạn chưa có thông báo nào.
-                    </div>
-                  )}
-
-                  {notifications.length > 0 && (
-                    <div className="max-h-96 overflow-y-auto">
-                      {notifications.map((notification) => (
-                        <div
-                          key={notification.notification_id}
-                          className={`flex items-start gap-2 border-b border-gray-100 px-3 py-3 transition hover:bg-amber-50 ${
-                            !notification.is_read ? 'bg-amber-50/70' : 'bg-white'
-                          }`}
+                      {unreadCount > 0 && (
+                        <span
+                          className="absolute -right-2 -top-2 flex h-5 min-w-5
+                                    items-center justify-center rounded-full
+                                    bg-red-600 px-1 text-xs font-bold text-white
+                                    ring-2 ring-white"
                         >
-                          {/* Nội dung thông báo */}
-                          <button
-                            type="button"
-                            onClick={() => handleNotificationClick(notification)}
-                            className="flex min-w-0 flex-1 items-start gap-2 text-left"
-                          >
-                            {!notification.is_read && (
-                              <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-600" />
-                            )}
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
+                    </button>
 
-                            <div className="min-w-0 flex-1">
-                            {notification.title && (
-                              <p className="truncate text-sm font-semibold text-gray-800">
-                                {notification.title}
-                              </p>
-                            )}
+                {showNotifications && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Đóng danh sách thông báo"
+                      className="fixed inset-0 z-40 cursor-default"
+                      onClick={() => setShowNotifications(false)}
+                    />
 
-                            <p className="mt-1 text-sm text-gray-700">
-                              {notification.message}
-                            </p>
+                    <div className="absolute right-0 top-full z-50 mt-2 w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-gray-200 bg-white text-left shadow-xl">
+                      <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
+                        <h3 className="whitespace-nowrap font-semibold text-gray-800">
+                          Thông báo
+                        </h3>
 
-                              <p className="mt-1 whitespace-nowrap text-xs text-gray-500">
-                                {notification.created_at ? (
-                                  <>
-                                    <span>
-                                      {new Date(notification.created_at).toLocaleDateString('vi-VN')}
-                                    </span>
+                        <span className="whitespace-nowrap text-xs text-gray-500">
+                          {unreadCount} chưa đọc
+                        </span>
+                      </div>
 
-                                    <span className="ml-6">
-                                      {new Date(notification.created_at).toLocaleTimeString('vi-VN', {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                        second: '2-digit',
-                                        hour12: false,
-                                      })}
-                                    </span>
-                                  </>
-                                ) : ''}
-                              </p>
-                            </div>
-                          </button>
-
-                          {/* Nút xóa thông báo */}
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteNotification(notification)}
-                            aria-label="Xóa thông báo"
-                            title="Xóa thông báo"
-                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-400 transition hover:bg-red-100 hover:text-red-600"
-                          >
-                            <X size={16} />
-                          </button>
+                      {loadingNotifications && notifications.length === 0 && (
+                        <div className="p-5 text-center text-sm text-gray-500">
+                          Đang tải thông báo...
                         </div>
-                      ))}
+                      )}
+
+                      {notificationError && (
+                        <div className="p-3 text-sm text-red-600">
+                          {notificationError}
+                        </div>
+                      )}
+
+                      {!loadingNotifications && notifications.length === 0 && (
+                        <div className="p-6 text-center text-sm text-gray-500">
+                          Bạn chưa có thông báo nào.
+                        </div>
+                      )}
+
+                      {notifications.length > 0 && (
+                        <div className="max-h-96 overflow-y-auto">
+                          {notifications.map((notification) => (
+                            <div
+                              key={notification.notification_id}
+                              className={`flex items-start gap-2 border-b border-gray-100 px-3 py-3 transition hover:bg-amber-50 ${
+                                !notification.is_read
+                                  ? 'bg-amber-50/70'
+                                  : 'bg-white'
+                              }`}
+                            >
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleNotificationClick(notification)
+                                }
+                                className="flex min-w-0 flex-1 items-start gap-2 text-left"
+                              >
+                                {!notification.is_read && (
+                                  <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-600" />
+                                )}
+
+                                <div className="min-w-0 flex-1">
+                                  {notification.title && (
+                                    <p className="truncate text-sm font-semibold text-gray-800">
+                                      {notification.title}
+                                    </p>
+                                  )}
+
+                                  <p className="mt-1 text-sm text-gray-700">
+                                    {notification.message}
+                                  </p>
+
+                                  <p className="mt-1 whitespace-nowrap text-xs text-gray-500">
+                                    {notification.created_at ? (
+                                      <>
+                                        <span>
+                                          {new Date(
+                                            notification.created_at
+                                          ).toLocaleDateString('vi-VN')}
+                                        </span>
+
+                                        <span className="ml-6">
+                                          {new Date(
+                                            notification.created_at
+                                          ).toLocaleTimeString('vi-VN', {
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            second: '2-digit',
+                                            hour12: false,
+                                          })}
+                                        </span>
+                                      </>
+                                    ) : (
+                                      ''
+                                    )}
+                                  </p>
+                                </div>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleDeleteNotification(notification)
+                                }
+                                aria-label="Xóa thông báo"
+                                title="Xóa thông báo"
+                                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-400 transition hover:bg-red-100 hover:text-red-600"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </>
+                  </>
+                )}
+              </div>
             )}
-            </div>
-)}
 
             {/* PUSH NOTIFICATION */}
             {user?.user_id && (
@@ -636,7 +763,7 @@ const handleDeleteNotification = async (notification) => {
                   type="button"
                   onClick={handleTogglePush}
                   disabled={!pushSupported || pushBusy}
-                  className={`flex h-10 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium transition ${
+                  className={`flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium transition ${
                     pushSubscribed
                       ? 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100'
                       : 'border-amber-300 bg-white text-[#7c3a0a] hover:bg-amber-50'
@@ -680,52 +807,126 @@ const handleDeleteNotification = async (notification) => {
               </div>
             )}
 
-            {/* Quản lý tài khoản - chỉ ADMIN */}
-            {user?.role === 'ADMIN' && (
+            {/* ACCOUNT MENU */}
+            <div className="relative">
               <button
                 type="button"
-                onClick={() => navigate('/accounts')}
-                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                onClick={() => {
+                  setShowAccountMenu((previous) => !previous);
+                  setShowNotifications(false);
+                }}
+                aria-label="Menu tài khoản"
+                aria-expanded={showAccountMenu}
+                className="flex h-10 shrink-0 items-center gap-2 rounded-lg border border-amber-300 bg-white px-3 text-left transition hover:bg-amber-50"
               >
-                Quản lý tài khoản
+                <div className="min-w-0">
+                  <p className="whitespace-nowrap text-sm font-semibold leading-5 text-[#5c2a06]">
+                    {user?.role === 'HEAD'
+                      ? `Trưởng ban ${
+                          user?.department_name?.replace(/^Ban\s/, 'ban ') || ''
+                        }`
+                      : user?.role === 'GUEST'
+                        ? 'Khách'
+                        : 'Quản trị viên'}
+                  </p>
+
+                  <p className="text-right text-xs leading-4 text-[#7c3a0a]">
+                    {user?.role}
+                  </p>
+                </div>
+
+                <ChevronDown
+                  size={16}
+                  className={`shrink-0 text-[#7c3a0a] transition-transform ${
+                    showAccountMenu ? 'rotate-180' : ''
+                  }`}
+                />
               </button>
-            )}
 
-            {/* Đổi mật khẩu */}
-            <button
-              type="button"
-              onClick={() =>
-                setShowChangePasswordModal(true)
-              }
-              className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-            >
-              <KeyRound size={17} />
+              {showAccountMenu && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Đóng menu tài khoản"
+                    className="fixed inset-0 z-40 cursor-default"
+                    onClick={() => setShowAccountMenu(false)}
+                  />
 
-              <span className="hidden lg:inline">
-                Đổi mật khẩu
-              </span>
-            </button>
+                  <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 text-left shadow-xl">
+                    <div className="border-b border-gray-100 px-4 py-3">
+                      <p className="font-semibold text-gray-800">
+                        {user?.full_name || 'Tài khoản'}
+                      </p>
 
-            {/* Đăng xuất */}
+                      <p className="mt-1 text-xs text-gray-500">
+                        {user?.role === 'HEAD'
+                          ? `Trưởng ban ${
+                              user?.department_name?.replace(/^Ban\s/, 'ban ') || ''
+                            }`
+                          : user?.role === 'GUEST'
+                            ? 'Khách'
+                            : 'Quản trị viên'}
+                        {' · '}
+                        {user?.role}
+                      </p>
+                    </div>
+
+                    {user?.role === 'ADMIN' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAccountMenu(false);
+                          navigate('/accounts');
+                        }}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-sm text-gray-700 transition hover:bg-amber-50"
+                      >
+                        <Users size={17} className="text-gray-500" />
+                        Quản lý tài khoản
+                      </button>
+                    )}
+
+                    {user?.role === 'ADMIN' && (
+                      <button
+                        type="button"
+                        onClick={openSendNotification}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-sm text-gray-700 transition hover:bg-amber-50"
+                      >
+                        <Send size={17} className="text-gray-500" />
+                        Gửi thông báo
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAccountMenu(false);
+                        setShowChangePasswordModal(true);
+                      }}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-sm text-gray-700 transition hover:bg-amber-50"
+                    >
+                      <KeyRound size={17} className="text-gray-500" />
+                      Đổi mật khẩu
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* LOGOUT */}
             <button
               type="button"
               onClick={handleLogout}
-              className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+              className="flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-red-600 px-3 text-sm font-medium text-white transition hover:bg-red-700"
             >
               <LogOut size={18} />
-
-              <span className="hidden sm:inline">
-                Đăng xuất
-              </span>
+              <span className="hidden sm:inline">Đăng xuất</span>
             </button>
-
           </div>
         </div>
       </header>
 
       {/* MAIN */}
       <main className="relative z-10 mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
-
         {/* Greeting */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-800">
@@ -736,6 +937,16 @@ const handleDeleteNotification = async (notification) => {
             Chọn một Ban để xem và quản lý thiết bị.
           </p>
         </div>
+
+        {/* Gửi thông báo thành công */}
+        {sendNotificationSuccess && (
+          <div
+            role="status"
+            className="mb-5 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700"
+          >
+            {sendNotificationSuccess}
+          </div>
+        )}
 
         {/* Loading */}
         {loading && (
@@ -758,9 +969,7 @@ const handleDeleteNotification = async (notification) => {
               <DepartmentCard
                 key={department.department_id}
                 department={department}
-                onClick={() =>
-                  handleDepartmentClick(department)
-                }
+                onClick={() => handleDepartmentClick(department)}
               />
             ))}
           </div>
@@ -778,9 +987,7 @@ const handleDeleteNotification = async (notification) => {
         {/* DEVICES */}
         {selectedDepartment && (
           <section className="mt-10">
-
             <div className="mb-5 flex items-center justify-between gap-4">
-
               <div>
                 <h2 className="text-2xl font-bold text-gray-800">
                   {selectedDepartment.department_name}
@@ -791,25 +998,18 @@ const handleDeleteNotification = async (notification) => {
                 </p>
               </div>
 
-                {(
-                  user?.role === 'ADMIN' ||
-                  (
-                    user?.role === 'HEAD' &&
-                    Number(user?.department_id) ===
-                      Number(selectedDepartment.department_id)
-                  )
-                ) && (
+              {(user?.role === 'ADMIN' ||
+                (user?.role === 'HEAD' &&
+                  Number(user?.department_id) ===
+                    Number(selectedDepartment.department_id))) && (
                 <button
                   type="button"
-                  onClick={() =>
-                    setShowAddDeviceModal(true)
-                  }
+                  onClick={() => setShowAddDeviceModal(true)}
                   className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
                 >
                   + Thêm thiết bị
                 </button>
               )}
-
             </div>
 
             {/* Loading thiết bị */}
@@ -828,10 +1028,8 @@ const handleDeleteNotification = async (notification) => {
                 }}
               />
             )}
-
           </section>
         )}
-
       </main>
 
       {/* ADD DEVICE MODAL */}
@@ -839,15 +1037,10 @@ const handleDeleteNotification = async (notification) => {
         <AddDeviceModal
           department={selectedDepartment}
           addDevice={addDevice}
-          onClose={() =>
-            setShowAddDeviceModal(false)
-          }
+          onClose={() => setShowAddDeviceModal(false)}
           onSuccess={async () => {
             setShowAddDeviceModal(false);
-
-            await handleDepartmentClick(
-              selectedDepartment
-            );
+            await handleDepartmentClick(selectedDepartment);
           }}
         />
       )}
@@ -855,12 +1048,182 @@ const handleDeleteNotification = async (notification) => {
       {/* CHANGE PASSWORD MODAL */}
       {showChangePasswordModal && (
         <ChangePasswordModal
-          onClose={() =>
-            setShowChangePasswordModal(false)
-          }
+          onClose={() => setShowChangePasswordModal(false)}
         />
       )}
 
+      {/* SEND NOTIFICATION MODAL */}
+      {showSendNotification && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-800">
+                  Gửi thông báo
+                </h2>
+
+                <p className="mt-1 text-sm text-gray-500">
+                  Soạn nội dung và chọn tài khoản nhận thông báo.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowSendNotification(false)}
+                aria-label="Đóng cửa sổ gửi thông báo"
+                className="rounded-lg p-2 text-gray-400 hover:bg-gray-100"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form
+              onSubmit={handleSendNotification}
+              className="space-y-5 p-6"
+            >
+              {sendNotificationError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {sendNotificationError}
+                </div>
+              )}
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Tiêu đề
+                </label>
+
+                <input
+                  type="text"
+                  value={notificationTitle}
+                  onChange={(e) => setNotificationTitle(e.target.value)}
+                  maxLength={200}
+                  placeholder="Nhập tiêu đề thông báo"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+
+                <p className="mt-1 text-right text-xs text-gray-400">
+                  {notificationTitle.length}/200
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Nội dung
+                </label>
+
+                <textarea
+                  value={notificationMessage}
+                  onChange={(e) => setNotificationMessage(e.target.value)}
+                  maxLength={500}
+                  rows={4}
+                  placeholder="Nhập nội dung thông báo"
+                  className="w-full resize-y rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+
+                <p className="mt-1 text-right text-xs text-gray-400">
+                  {notificationMessage.length}/500
+                </p>
+              </div>
+
+              <div>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Người nhận ({selectedRecipientIds.length}/
+                    {notificationRecipients.length})
+                  </label>
+
+                  <label className="flex items-center gap-2 text-sm text-blue-700">
+                    <input
+                      type="checkbox"
+                      checked={
+                        notificationRecipients.length > 0 &&
+                        selectedRecipientIds.length ===
+                          notificationRecipients.length
+                      }
+                      onChange={(e) =>
+                        handleSelectAllRecipients(e.target.checked)
+                      }
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    Chọn tất cả
+                  </label>
+                </div>
+
+                <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-gray-200 p-3">
+                  {notificationRecipients.map((account) => (
+                    <label
+                      key={account.user_id}
+                      className="flex cursor-pointer items-center gap-3 rounded-lg p-2 hover:bg-gray-50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedRecipientIds.includes(
+                          account.user_id
+                        )}
+                        onChange={(e) =>
+                          handleRecipientChange(
+                            account.user_id,
+                            e.target.checked
+                          )
+                        }
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-gray-800">
+                          {account.full_name}
+                        </p>
+
+                        <p className="truncate text-xs text-gray-500">
+                          {account.username} · {account.role}
+                          {account.department_name
+                            ? ` · ${account.department_name}`
+                            : ''}
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+
+                  {notificationRecipients.length === 0 && (
+                    <p className="py-4 text-center text-sm text-gray-500">
+                      Không có tài khoản để chọn.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSendNotification(false)}
+                  disabled={sendingNotification}
+                  className="rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Hủy
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={
+                    sendingNotification ||
+                    selectedRecipientIds.length === 0
+                  }
+                  className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {sendingNotification && (
+                    <LoaderCircle
+                      size={17}
+                      className="animate-spin"
+                    />
+                  )}
+
+                  Gửi thông báo
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
