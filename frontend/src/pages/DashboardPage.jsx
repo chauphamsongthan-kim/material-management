@@ -657,7 +657,7 @@ function DashboardPage() {
                       onClick={() => setShowNotifications(false)}
                     />
 
-                    <div className="absolute right-0 top-full z-50 mt-2 w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-gray-200 bg-white text-left shadow-xl">
+                    <div className="fixed left-1/2 top-20 z-[60] w-[calc(100vw-2rem)] max-w-[360px] -translate-x-1/2 overflow-hidden rounded-xl border border-gray-200 bg-white text-left shadow-xl">
                       <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
                         <h3 className="whitespace-nowrap font-semibold text-gray-800">
                           Thông báo
@@ -807,12 +807,12 @@ function DashboardPage() {
                 </button>
 
                 {pushMessage && (
-                  <div
-                    role="status"
-                    className="absolute right-0 top-full z-50 mt-2 w-64 rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-700 shadow-lg"
-                  >
-                    {pushMessage}
-                  </div>
+              <div
+                role="status"
+                className="fixed left-1/2 top-20 z-[60] w-[calc(100vw-2rem)] max-w-64 -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-700 shadow-lg"
+              >
+                {pushMessage}
+              </div>
                 )}
               </div>
             )}
