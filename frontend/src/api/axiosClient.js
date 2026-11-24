@@ -25,4 +25,34 @@ axiosClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Các API mà 401 là kết quả bình thường (sai mật khẩu), không phải hết phiên
+const AUTH_ENDPOINTS_WITH_OWN_401 = ['/auth/login', '/auth/change-password'];
+
+let redirectingToLogin = false;
+
+// Token hết hạn / bị thu hồi (đổi mật khẩu, xóa tài khoản): xóa phiên và về trang đăng nhập
+axiosClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error.response?.status;
+    const url = error.config?.url || '';
+
+    const hasSession = Boolean(localStorage.getItem('token'));
+    const isAuthEndpoint = AUTH_ENDPOINTS_WITH_OWN_401.some((path) =>
+      url.includes(path)
+    );
+
+    if (status === 401 && hasSession && !isAuthEndpoint && !redirectingToLogin) {
+      redirectingToLogin = true;
+
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+
+      window.location.assign('/login');
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 export default axiosClient;

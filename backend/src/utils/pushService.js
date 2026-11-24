@@ -1,6 +1,7 @@
 
 const webpush = require('web-push');
 const { pool } = require('../config/database');
+const { isAllowedPushEndpoint } = require('./pushEndpoint');
 
 const publicKey = process.env.VAPID_PUBLIC_KEY;
 const privateKey = process.env.VAPID_PRIVATE_KEY;
@@ -50,7 +51,10 @@ async function sendPushToUsers(userIds, payload) {
     }
   }
 
-  const targets = [...uniqueSubscriptions.values()];
+  // Phòng thủ thêm: bỏ qua địa chỉ không thuộc máy chủ push hợp lệ
+  const targets = [...uniqueSubscriptions.values()].filter((item) =>
+    isAllowedPushEndpoint(item.endpoint)
+  );
 
   const results = await Promise.allSettled(
     targets.map(async (item) => {
@@ -65,7 +69,8 @@ async function sendPushToUsers(userIds, payload) {
       try {
         await webpush.sendNotification(
           subscription,
-          JSON.stringify(payload)
+          JSON.stringify(payload),
+          { timeout: 10000 }
         );
       } catch (error) {
         if (error.statusCode === 404 || error.statusCode === 410) {

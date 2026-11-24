@@ -23,6 +23,7 @@ import BorrowDeviceModal from '../components/devices/BorrowDeviceModal';
 import ReturnDeviceModal from '../components/devices/ReturnDeviceModal';
 import DeviceHistoryTable from '../components/devices/DeviceHistoryTable';
 
+import AuthImage from '../components/common/AuthImage';
 import EditDeviceModal from '../components/devices/EditDeviceModal';
 import DeleteDeviceModal from '../components/devices/DeleteDeviceModal';
 
@@ -61,6 +62,7 @@ function DeviceDetailPage() {
   useEffect(() => {
     loadDevice();
     loadHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceId]);
 
   async function loadDevice() {
@@ -186,13 +188,6 @@ function DeviceDetailPage() {
     return null;
   }
 
-  console.log('VITE_SERVER_URL:', import.meta.env.VITE_SERVER_URL);
-console.log('device.image_url:', device.image_url);
-console.log(
-  'Ảnh đầy đủ:',
-  `${import.meta.env.VITE_SERVER_URL || 'http://localhost:5000'}${device.image_url}`
-);
-
   return (
     <div className="min-h-screen bg-gray-100">
       {/* HEADER */}
@@ -248,13 +243,10 @@ console.log(
                   className="absolute text-gray-300"
                 />
 
-                <img
-                  src={`${import.meta.env.VITE_SERVER_URL || 'http://localhost:5000'}${device.image_url}`}
+                <AuthImage
+                  imageUrl={device.image_url}
                   alt={device.device_name}
                   className="relative z-10 h-full w-full object-contain"
-                  onError={(event) => {
-                    event.currentTarget.style.display = 'none';
-                  }}
                 />
               </>
             )}

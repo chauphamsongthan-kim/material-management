@@ -43,6 +43,17 @@ async function borrowDevice(req, res) {
       });
     }
 
+    if (
+      typeof borrower_name !== 'string' ||
+      !borrower_name.trim() ||
+      borrower_name.trim().length > 100
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tên người mượn không hợp lệ (tối đa 100 ký tự).',
+      });
+    }
+
     const qty = Number(borrowed_quantity);
 
     if (!Number.isInteger(qty) || qty <= 0) {
@@ -118,57 +129,68 @@ async function borrowDevice(req, res) {
 
     await connection.commit();
 
-    // Tìm HEAD của ban sở hữu thiết bị
-    const [headRows] = await pool.query(
-      `SELECT user_id
-      FROM users
-      WHERE role = 'HEAD' AND department_id = ?`,
-      [device.department_id]
-    );
-
-// Tạo thông báo và gửi Push cho HEAD của ban
-if (headRows.length > 0) {
-  const recipientId = headRows[0].user_id;
-  const borrowerName = borrower_name.trim();
-  const deviceName = device.device_name;
-  const message = `${borrowerName} đã mượn ${qty} ${deviceName}`;
-
-  await pool.query(
-    `INSERT INTO notifications
-      (recipient_id, device_id, borrower_name, device_name, borrowed_quantity, message)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [
-      recipientId,
-      deviceId,
-      borrowerName,
-      deviceName,
-      qty,
-      message,
-    ]
-  );
-
-    // Push chỉ gửi cho HEAD của ban sở hữu thiết bị.
-    // Lỗi Push không ảnh hưởng đến thông báo đã lưu.
+    // =========================================
+    // THÔNG BÁO CHO HEAD CỦA BAN
+    // =========================================
+    // Việc mượn đã được lưu (commit) ở trên. Mọi lỗi ở bước thông báo / Push
+    // chỉ được ghi log, KHÔNG được làm người dùng thấy lỗi - nếu không họ sẽ
+    // tưởng chưa mượn được và bấm mượn lần hai.
     try {
-      const pushResult = await sendPushToUsers([recipientId], {
-        title: 'Có lượt mượn thiết bị mới',
-        body: message,
-        url: `/devices/${deviceId}`,
-      });
+      const [headRows] = await pool.query(
+        `SELECT user_id
+         FROM users
+         WHERE role = 'HEAD' AND department_id = ?`,
+        [device.department_id]
+      );
 
-      if (pushResult.failed > 0) {
-        console.error(
-          `Gửi Push thất bại trên ${pushResult.failed} thiết bị của HEAD ${recipientId}.`
+      if (headRows.length > 0) {
+        const recipientId = headRows[0].user_id;
+        const borrowerName = borrower_name.trim();
+        const deviceName = device.device_name;
+        const message = `${borrowerName} đã mượn ${qty} ${deviceName}`;
+
+        await pool.query(
+          `INSERT INTO notifications
+            (recipient_id, device_id, borrower_name, device_name, borrowed_quantity, message)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            recipientId,
+            deviceId,
+            borrowerName,
+            deviceName,
+            qty,
+            message,
+          ]
         );
+
+        // Push chỉ gửi cho HEAD của ban sở hữu thiết bị.
+        // Lỗi Push không ảnh hưởng đến thông báo đã lưu.
+        try {
+          const pushResult = await sendPushToUsers([recipientId], {
+            title: 'Có lượt mượn thiết bị mới',
+            body: message,
+            url: `/devices/${deviceId}`,
+          });
+
+          if (pushResult.failed > 0) {
+            console.error(
+              `Gửi Push thất bại trên ${pushResult.failed} thiết bị của HEAD ${recipientId}.`
+            );
+          }
+        } catch (pushError) {
+          console.error(
+            `Không thể gửi Push đến HEAD ${recipientId}:`,
+            pushError.message
+          );
+        }
       }
-    } catch (pushError) {
+    } catch (notifyError) {
       console.error(
-        `Không thể gửi Push đến HEAD ${recipientId}:`,
-        pushError.message
+        'Đã mượn thành công nhưng không thể ghi thông báo cho HEAD:',
+        notifyError
       );
     }
-  }
-  
+
     return res.status(201).json({
       success: true,
       message: 'Mượn thiết bị thành công.',

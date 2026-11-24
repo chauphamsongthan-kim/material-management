@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react';
 import { ImagePlus, X } from 'lucide-react';
 
+import AuthImage from '../common/AuthImage';
+
 function EditDeviceModal({
   device,
   onClose,
@@ -27,7 +29,9 @@ function EditDeviceModal({
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // Nạp lại form mỗi khi chọn thiết bị khác (đồng bộ state với prop `device`)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDeviceName(device.device_name || '');
     setDeviceType(device.device_type || '');
     setOriginalQuantity(
@@ -47,10 +51,6 @@ function EditDeviceModal({
       }
     };
   }, [imagePreview]);
-
-  const currentImageUrl = device.image_url
-    ? `${import.meta.env.VITE_SERVER_URL || 'http://localhost:5000'}${device.image_url}`
-    : '';
 
   const handleImageChange = (event) => {
     const file = event.target.files?.[0];
@@ -274,14 +274,11 @@ function EditDeviceModal({
                     alt="Ảnh mới xem trước"
                     className="mx-auto mb-3 h-40 w-full rounded-lg object-contain"
                   />
-                ) : currentImageUrl && !removeImage ? (
-                  <img
-                    src={currentImageUrl}
+                ) : device.image_url && !removeImage ? (
+                  <AuthImage
+                    imageUrl={device.image_url}
                     alt={device.device_name}
                     className="mx-auto mb-3 h-40 w-full rounded-lg object-contain"
-                    onError={(event) => {
-                      event.currentTarget.style.display = 'none';
-                    }}
                   />
                 ) : (
                   <div className="flex h-40 flex-col items-center justify-center text-gray-400">

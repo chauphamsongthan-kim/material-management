@@ -56,7 +56,9 @@ function ReturnDeviceModal({
     (borrow) => borrow.borrow_id === selectedBorrowId
   );
 
+  // Đổi lượt mượn thì xóa số lượng trả đã nhập
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setReturnedQuantity('');
   }, [selectedBorrow]);
 

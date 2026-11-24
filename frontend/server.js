@@ -23,8 +23,24 @@ const mimeTypes = {
   '.woff2': 'font/woff2',
 };
 
-const server = http.createServer((req, res) => {
-  let urlPath = decodeURIComponent(req.url.split('?')[0]);
+function handleRequest(req, res) {
+  let urlPath;
+
+  try {
+    urlPath = decodeURIComponent(req.url.split('?')[0]);
+  } catch {
+    // Địa chỉ sai mã hóa (ví dụ /%): trả 400 thay vì làm sập server
+    res.writeHead(400);
+    res.end('Bad Request');
+    return;
+  }
+
+  // Chặn ký tự NUL (dùng để lách kiểm tra đường dẫn)
+  if (urlPath.includes('\0')) {
+    res.writeHead(400);
+    res.end('Bad Request');
+    return;
+  }
 
   if (urlPath === '/') {
     urlPath = '/index.html';
@@ -32,7 +48,7 @@ const server = http.createServer((req, res) => {
 
   let filePath = path.join(distPath, urlPath);
 
-  if (!filePath.startsWith(distPath)) {
+  if (filePath !== distPath && !filePath.startsWith(distPath + path.sep)) {
     res.writeHead(403);
     res.end('Forbidden');
     return;
@@ -58,6 +74,21 @@ const server = http.createServer((req, res) => {
 
     res.end(content);
   });
+}
+
+const server = http.createServer((req, res) => {
+  // Bất kỳ lỗi bất ngờ nào cũng chỉ làm hỏng một request, không làm dừng server
+  try {
+    handleRequest(req, res);
+  } catch (error) {
+    console.error('Lỗi xử lý request:', error);
+
+    if (!res.headersSent) {
+      res.writeHead(500);
+    }
+
+    res.end('Internal Server Error');
+  }
 });
 
 server.listen(port, '0.0.0.0', () => {

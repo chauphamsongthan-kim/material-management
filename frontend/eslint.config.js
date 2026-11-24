@@ -18,4 +18,18 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+  {
+    // Server tĩnh chạy bằng Node, không phải code trình duyệt
+    files: ['server.js'],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
+  {
+    // Service worker có biến toàn cục riêng (self, clients...)
+    files: ['public/sw.js'],
+    languageOptions: {
+      globals: globals.serviceworker,
+    },
+  },
 ])

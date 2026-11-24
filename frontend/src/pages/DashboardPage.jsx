@@ -105,10 +105,6 @@ function DashboardPage() {
     return () => clearTimeout(timeoutId);
   }, [pushMessage]);
 
-  useEffect(() => {
-    loadDepartments();
-  }, []);
-
   async function loadDepartments() {
     try {
       setLoading(true);
@@ -130,6 +126,11 @@ function DashboardPage() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadDepartments();
+  }, []);
 
   // Tải thông báo của tài khoản đang đăng nhập
   const loadNotifications = async () => {
@@ -162,6 +163,7 @@ function DashboardPage() {
     let cancelled = false;
 
     // Tránh hiển thị nhầm trạng thái của tài khoản trước đó
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPushSubscribed(false);
     setPushMessage('');
 
@@ -223,6 +225,7 @@ function DashboardPage() {
   // Tự tải thông báo khi vào Dashboard và cập nhật định kỳ
   useEffect(() => {
     if (!user?.user_id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setNotifications([]);
       setUnreadCount(0);
       setShowNotifications(false);

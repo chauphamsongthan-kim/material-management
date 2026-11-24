@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS devices (
   original_quantity INT NOT NULL,
   current_quantity INT NOT NULL,
   notes TEXT NULL,
+  image_url VARCHAR(255) NULL,
   CONSTRAINT fk_devices_department
     FOREIGN KEY (department_id) REFERENCES departments(department_id)
     ON DELETE RESTRICT,
@@ -65,14 +66,35 @@ CREATE TABLE IF NOT EXISTS notifications (
   notification_id INT AUTO_INCREMENT PRIMARY KEY,
   recipient_id INT NOT NULL,
   device_id INT NULL,
-  borrower_name VARCHAR(100) NOT NULL,
-  device_name VARCHAR(255) NOT NULL,
-  borrowed_quantity INT NOT NULL,
+  borrower_name VARCHAR(100) NULL,
+  device_name VARCHAR(255) NULL,
+  borrowed_quantity INT NULL,
+  notification_type ENUM('BORROW', 'ADMIN') NOT NULL DEFAULT 'BORROW',
+  title VARCHAR(200) NULL,
   message VARCHAR(500) NOT NULL,
   is_read TINYINT(1) NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_notifications_recipient_id (recipient_id),
   INDEX idx_notifications_device_id (device_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  subscription_id INT NOT NULL AUTO_INCREMENT,
+  user_id INT NOT NULL,
+  endpoint TEXT NOT NULL,
+  endpoint_hash CHAR(64) NOT NULL,
+  p256dh VARCHAR(255) NOT NULL,
+  auth VARCHAR(255) NOT NULL,
+  push_enabled TINYINT(1) NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (subscription_id),
+  UNIQUE KEY uq_push_user_endpoint (user_id, endpoint_hash),
+  KEY idx_push_user_id (user_id),
+  CONSTRAINT fk_push_subscriptions_user
+    FOREIGN KEY (user_id) REFERENCES users (user_id)
+    ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Seed departments without duplicating existing rows.

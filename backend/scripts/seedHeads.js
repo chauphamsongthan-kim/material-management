@@ -1,7 +1,16 @@
+// =========================================
+// SCRIPT: TẠO TÀI KHOẢN HEAD CHO 6 BAN
+// =========================================
+// Mật khẩu KHÔNG được ghi cứng trong mã nguồn:
+// - Đặt SEED_HEAD_PASSWORD trong .env để dùng chung một mật khẩu, hoặc
+// - Bỏ trống: mỗi tài khoản tự sinh mật khẩu ngẫu nhiên riêng,
+//   in ra MỘT LẦN duy nhất khi tạo.
+
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { pool } = require('../src/config/database');
 
-const HEAD_PASSWORD = 'head123';
+const PROVIDED_PASSWORD = process.env.SEED_HEAD_PASSWORD;
 
 const headAccounts = [
   {
@@ -42,10 +51,12 @@ async function seedHeads() {
     console.log('TẠO TÀI KHOẢN HEAD');
     console.log('=========================================');
 
-    const passwordHash = await bcrypt.hash(
-      HEAD_PASSWORD,
-      10
-    );
+    if (PROVIDED_PASSWORD && PROVIDED_PASSWORD.length < 8) {
+      console.error('❌ SEED_HEAD_PASSWORD phải có ít nhất 8 ký tự.');
+      return;
+    }
+
+    const createdAccounts = [];
 
     for (const account of headAccounts) {
       // Tìm Ban
@@ -101,6 +112,11 @@ async function seedHeads() {
       }
 
       // Tạo tài khoản HEAD
+      const plainPassword =
+        PROVIDED_PASSWORD || crypto.randomBytes(9).toString('base64url');
+
+      const passwordHash = await bcrypt.hash(plainPassword, 10);
+
       await pool.query(
         `INSERT INTO users
           (
@@ -119,15 +135,25 @@ async function seedHeads() {
         ]
       );
 
+      createdAccounts.push({
+        username: account.username,
+        password: PROVIDED_PASSWORD ? '(SEED_HEAD_PASSWORD)' : plainPassword,
+      });
+
       console.log(
         `✅ Đã tạo ${account.username} → ${account.department_name}`
       );
     }
 
+    if (createdAccounts.length > 0) {
+      console.log('');
+      console.log('Mật khẩu chỉ hiện MỘT LẦN, hãy lưu lại và gửi riêng cho từng người:');
+      console.table(createdAccounts);
+    }
+
     console.log('');
     console.log('=========================================');
     console.log('HOÀN TẤT');
-    console.log('Mật khẩu các tài khoản HEAD: head123');
     console.log('=========================================');
   } catch (error) {
     console.error('❌ Lỗi tạo tài khoản HEAD:', error);

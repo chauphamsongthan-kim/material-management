@@ -4,9 +4,14 @@ const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem('user');
+    try {
+      const savedUser = localStorage.getItem('user');
 
-    return savedUser ? JSON.parse(savedUser) : null;
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      // Dữ liệu đăng nhập đã lưu bị hỏng -> coi như chưa đăng nhập
+      return null;
+    }
   });
 
   // Lưu thông tin sau khi đăng nhập thành công
@@ -39,6 +44,7 @@ export function AuthProvider({ children }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   return useContext(AuthContext);
 }

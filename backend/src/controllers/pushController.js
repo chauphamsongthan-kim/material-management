@@ -1,6 +1,7 @@
 
 const crypto = require('crypto');
 const { pool } = require('../config/database');
+const { isAllowedPushEndpoint } = require('../utils/pushEndpoint');
 
 // Kiểm tra và chuẩn hóa thông tin đăng ký Push
 function validateSubscription(body) {
@@ -17,15 +18,8 @@ function validateSubscription(body) {
     return { valid: false };
   }
 
-  let parsedEndpoint;
-
-  try {
-    parsedEndpoint = new URL(endpoint);
-  } catch {
-    return { valid: false };
-  }
-
-  if (parsedEndpoint.protocol !== 'https:') {
+  // Chỉ nhận địa chỉ của máy chủ push chính thức (Google, Mozilla, Apple, Microsoft)
+  if (!isAllowedPushEndpoint(endpoint)) {
     return { valid: false };
   }
 

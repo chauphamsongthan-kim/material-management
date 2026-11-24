@@ -17,6 +17,14 @@ export async function changePassword(currentPassword, newPassword) {
     new_password: newPassword,
   });
 
+  // Đổi mật khẩu làm token cũ hết hiệu lực; server cấp token mới
+  // để người dùng đang đăng nhập không bị đăng xuất.
+  const newToken = response.data?.data?.token;
+
+  if (newToken) {
+    localStorage.setItem('token', newToken);
+  }
+
   return response.data;
 }
 

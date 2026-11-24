@@ -83,6 +83,14 @@ async function addDevice(req, res) {
       }
     }
 
+    // Ảnh hỏng / không hợp lệ là lỗi của người gửi, không phải lỗi máy chủ
+    if (err.code === 'INVALID_IMAGE') {
+      return res.status(400).json({
+        success: false,
+        message: err.message,
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: 'Lỗi máy chủ.',
@@ -125,19 +133,28 @@ async function getDeviceById(req, res) {
 }
 
 // PUT /api/devices/:id -> Sửa thiết bị
+// Toàn bộ đọc-kiểm tra-ghi nằm trong một transaction và khóa dòng thiết bị
+// (FOR UPDATE), nên không thể trùng thời điểm với một lượt mượn/trả.
 async function updateDevice(req, res) {
+  let connection;
   let savedImage = null;
+  let committed = false;
 
   try {
     const deviceId = req.params.id;
     const { device_name, device_type, original_quantity, notes } = req.body;
 
-    const [rows] = await pool.query(
-      'SELECT * FROM devices WHERE device_id = ?',
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    const [rows] = await connection.query(
+      'SELECT * FROM devices WHERE device_id = ? FOR UPDATE',
       [deviceId]
     );
 
     if (rows.length === 0) {
+      await connection.rollback();
+
       return res.status(404).json({
         success: false,
         message: 'Không tìm thấy thiết bị.',
@@ -148,6 +165,8 @@ async function updateDevice(req, res) {
 
     // Kiểm tra quyền: ADMIN hoặc HEAD của đúng ban sở hữu thiết bị
     if (!canManageDepartment(req.user, device.department_id)) {
+      await connection.rollback();
+
       return res.status(403).json({
         success: false,
         message: 'Bạn không có quyền Sửa thiết bị của ban này.',
@@ -163,6 +182,8 @@ async function updateDevice(req, res) {
       Number(original_quantity) !== device.original_quantity
     ) {
       if (device.current_quantity !== device.original_quantity) {
+        await connection.rollback();
+
         return res.status(400).json({
           success: false,
           message: 'Không thể sửa Số lượng gốc vì vẫn còn thiết bị chưa được trả.',
@@ -172,6 +193,8 @@ async function updateDevice(req, res) {
       const quantity = Number(original_quantity);
 
       if (!Number.isInteger(quantity) || quantity <= 0) {
+        await connection.rollback();
+
         return res.status(400).json({
           success: false,
           message: 'Số lượng gốc phải lớn hơn 0.',
@@ -201,7 +224,7 @@ async function updateDevice(req, res) {
       ? savedImage.imageUrl
       : device.image_url;
 
-    await pool.query(
+    await connection.query(
       `UPDATE devices
        SET device_name = ?,
            device_type = ?,
@@ -221,6 +244,9 @@ async function updateDevice(req, res) {
       ]
     );
 
+    await connection.commit();
+    committed = true;
+
     // Xóa ảnh cũ sau khi DB đã cập nhật thành công
     if (savedImage && device.image_url) {
       try {
@@ -237,8 +263,16 @@ async function updateDevice(req, res) {
   } catch (err) {
     console.error(err);
 
+    if (connection && !committed) {
+      try {
+        await connection.rollback();
+      } catch (rollbackError) {
+        console.error('Lỗi rollback khi sửa thiết bị:', rollbackError);
+      }
+    }
+
     // Dọn ảnh mới nếu cập nhật DB thất bại
-    if (savedImage) {
+    if (savedImage && !committed) {
       try {
         await deleteDeviceImage(savedImage.imageUrl);
       } catch (cleanupError) {
@@ -246,24 +280,45 @@ async function updateDevice(req, res) {
       }
     }
 
+    // Ảnh hỏng / không hợp lệ là lỗi của người gửi, không phải lỗi máy chủ
+    if (err.code === 'INVALID_IMAGE') {
+      return res.status(400).json({
+        success: false,
+        message: err.message,
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: 'Lỗi máy chủ.',
     });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
   }
 }
 
 // DELETE /api/devices/:id -> Xóa thiết bị
+// Kiểm tra "đã trả đủ" và xóa nằm trong cùng một transaction có khóa dòng,
+// để không xóa nhầm thiết bị đang có người mượn.
 async function deleteDevice(req, res) {
+  let connection;
+
   try {
     const deviceId = req.params.id;
 
-    const [rows] = await pool.query(
-      'SELECT * FROM devices WHERE device_id = ?',
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    const [rows] = await connection.query(
+      'SELECT * FROM devices WHERE device_id = ? FOR UPDATE',
       [deviceId]
     );
 
     if (rows.length === 0) {
+      await connection.rollback();
+
       return res.status(404).json({
         success: false,
         message: 'Không tìm thấy thiết bị.',
@@ -273,6 +328,8 @@ async function deleteDevice(req, res) {
     const device = rows[0];
 
     if (!canManageDepartment(req.user, device.department_id)) {
+      await connection.rollback();
+
       return res.status(403).json({
         success: false,
         message: 'Bạn không có quyền Xóa thiết bị của ban này.',
@@ -281,6 +338,8 @@ async function deleteDevice(req, res) {
 
     // Chỉ được xóa khi current_quantity = original_quantity
     if (device.current_quantity !== device.original_quantity) {
+      await connection.rollback();
+
       return res.status(400).json({
         success: false,
         message: 'Không thể xóa thiết bị vì vẫn còn thiết bị chưa được trả.',
@@ -288,10 +347,12 @@ async function deleteDevice(req, res) {
     }
 
     // Xóa thiết bị trong DB trước
-    await pool.query(
+    await connection.query(
       'DELETE FROM devices WHERE device_id = ?',
       [deviceId]
     );
+
+    await connection.commit();
 
     // Xóa ảnh liên quan; lỗi xóa ảnh không làm thay đổi kết quả DB
     if (device.image_url) {
@@ -309,10 +370,22 @@ async function deleteDevice(req, res) {
   } catch (err) {
     console.error(err);
 
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (rollbackError) {
+        console.error('Lỗi rollback khi xóa thiết bị:', rollbackError);
+      }
+    }
+
     return res.status(500).json({
       success: false,
       message: 'Lỗi máy chủ.',
     });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
   }
 }
 

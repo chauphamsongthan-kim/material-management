@@ -4,6 +4,7 @@
 
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 
 const authRoutes = require('./routes/authRoutes');
 const departmentRoutes = require('./routes/departmentRoutes');
@@ -15,20 +16,50 @@ const notificationRoutes = require('./routes/notificationRoutes');
 
 const pushRoutes = require('./routes/pushRoutes');
 
+const authMiddleware = require('./middleware/authMiddleware');
 const { UPLOAD_DIR } = require('./utils/imageStorage');
 
 const app = express();
 
+// Header bảo mật. Ảnh /uploads được trang frontend (khác tên miền) tải về
+// nên phải cho phép cross-origin cho tài nguyên.
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 
+// CORS: đặt CORS_ORIGINS trong .env để chỉ cho phép đúng trang web của bạn,
+// ví dụ CORS_ORIGINS=https://ten-mien-frontend.com (nhiều địa chỉ cách nhau bằng dấu phẩy).
+// Nếu chưa đặt thì giữ nguyên hành vi cũ (cho mọi trang).
+const allowedOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
 
-app.use(cors());
+if (allowedOrigins.length === 0) {
+  console.warn('⚠️  CORS_ORIGINS chưa được đặt: API đang cho phép mọi trang web gọi tới.');
+}
+
+app.use(cors(
+  allowedOrigins.length > 0
+    ? {
+        origin(origin, callback) {
+          // Không có Origin (Postman, curl, server-to-server) vẫn được qua
+          callback(null, !origin || allowedOrigins.includes(origin));
+        },
+      }
+    : undefined
+));
+
 app.use(express.json());
 
-// Phục vụ ảnh thiết bị đã tải lên
-app.use('/uploads', express.static(UPLOAD_DIR, {
+// Phục vụ ảnh thiết bị đã tải lên: chỉ người đã đăng nhập mới xem được
+app.use('/uploads', authMiddleware, express.static(UPLOAD_DIR, {
   index: false,
   dotfiles: 'deny',
   maxAge: '7d',
+  setHeaders(res) {
+    res.setHeader('Cache-Control', 'private, max-age=604800');
+  },
 }));
 
 // Kiểm tra server còn sống
@@ -59,6 +90,20 @@ app.use((err, req, res, next) => {
     return res.status(400).json({
       success: false,
       message: 'Ảnh tải lên không được vượt quá 5 MB.',
+    });
+  }
+
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({
+      success: false,
+      message: 'Dữ liệu gửi lên không hợp lệ.',
+    });
+  }
+
+  if (err.code === 'INVALID_IMAGE') {
+    return res.status(400).json({
+      success: false,
+      message: err.message,
     });
   }
 
