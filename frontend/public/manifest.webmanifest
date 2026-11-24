@@ -1,7 +1,7 @@
 {
-  "name": "Hệ thống quản lý thiết bị và vật tư",
-  "short_name": "Quản lý thiết bị",
-  "description": "Quản lý thiết bị và vật tư của Chùa Hội Đức",
+  "name": "Chùa Hội Đức",
+  "short_name": "Chùa Hội Đức",
+  "description": "Hệ thống quản lý thiết bị và vật tư của Chùa Hội Đức",
   "lang": "vi",
   "start_url": "/dashboard",
   "scope": "/",

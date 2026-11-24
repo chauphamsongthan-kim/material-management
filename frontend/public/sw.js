@@ -15,7 +15,7 @@ self.addEventListener('push', (event) => {
   const options = {
     body: data.body || 'Bạn có một thông báo mới.',
     icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
+    badge: '/icons/badge-96.png',
     data: {
       url: data.url || '/',
     },
