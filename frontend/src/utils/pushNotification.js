@@ -28,6 +28,31 @@ export function isPushSupported() {
   );
 }
 
+// iPhone/iPad chỉ cho Push khi website được thêm vào Màn hình chính
+function isIOSDevice() {
+  const ua = navigator.userAgent || '';
+  return (
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  );
+}
+
+function isStandaloneMode() {
+  return (
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    navigator.standalone === true
+  );
+}
+
+// Lời giải thích hiển thị khi người dùng bấm chuông nhưng thiết bị chưa hỗ trợ Push
+export function getUnsupportedPushMessage() {
+  if (isIOSDevice() && !isStandaloneMode()) {
+    return 'Trên iPhone: bấm nút Chia sẻ trong Safari, chọn "Thêm vào Màn hình chính", rồi mở ứng dụng từ biểu tượng vừa tạo và bật chuông tại đó.';
+  }
+
+  return 'Trình duyệt này chưa hỗ trợ thông báo đẩy. Hãy dùng Chrome, Edge hoặc Firefox bản mới.';
+}
+
 // Lấy hoặc tạo đăng ký Push của trình duyệt.
 // Hàm này không yêu cầu quyền thông báo và không tự bật cho tài khoản.
 async function getOrCreateDeviceSubscription() {

@@ -17,6 +17,7 @@ const mimeTypes = {
   '.json': 'application/json',
   '.png': 'image/png',
   '.webp': 'image/webp',
+  '.webmanifest': 'application/manifest+json',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.svg': 'image/svg+xml',
@@ -32,6 +33,7 @@ const compressibleTypes = new Set([
   '.css',
   '.json',
   '.svg',
+  '.webmanifest',
 ]);
 
 // Bản nén của từng file được giữ trong bộ nhớ (thư mục dist rất nhỏ),
