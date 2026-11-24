@@ -2,6 +2,7 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import zlib from 'zlib';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,6 +16,7 @@ const mimeTypes = {
   '.css': 'text/css',
   '.json': 'application/json',
   '.png': 'image/png',
+  '.webp': 'image/webp',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.svg': 'image/svg+xml',
@@ -22,6 +24,49 @@ const mimeTypes = {
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
 };
+
+// Chỉ nén các loại file dạng chữ (ảnh đã được nén sẵn)
+const compressibleTypes = new Set([
+  '.html',
+  '.js',
+  '.css',
+  '.json',
+  '.svg',
+]);
+
+// Bản nén của từng file được giữ trong bộ nhớ (thư mục dist rất nhỏ),
+// nên mỗi file chỉ phải nén một lần cho đến khi server khởi động lại.
+const compressedCache = new Map();
+
+function pickEncoding(acceptEncoding = '') {
+  if (/\bbr\b/.test(acceptEncoding)) return 'br';
+  if (/\bgzip\b/.test(acceptEncoding)) return 'gzip';
+  return null;
+}
+
+function compress(content, encoding) {
+  return encoding === 'br'
+    ? zlib.brotliCompressSync(content, {
+        params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 6 },
+      })
+    : zlib.gzipSync(content, { level: 9 });
+}
+
+// File trong /assets/ có tên kèm mã băm (Vite) nên cache được rất lâu.
+// index.html và sw.js phải luôn kiểm tra lại để người dùng nhận bản mới.
+function getCacheControl(urlPath, filePath) {
+  const name = path.basename(filePath);
+
+  if (name === 'index.html' || name === 'sw.js') {
+    return 'no-cache';
+  }
+
+  if (urlPath.startsWith('/assets/')) {
+    return 'public, max-age=31536000, immutable';
+  }
+
+  return 'public, max-age=86400';
+}
 
 function handleRequest(req, res) {
   let urlPath;
@@ -68,11 +113,37 @@ function handleRequest(req, res) {
       return;
     }
 
-    res.writeHead(200, {
+    const headers = {
       'Content-Type': contentType,
-    });
+      'Cache-Control': getCacheControl(urlPath, filePath),
+      'X-Content-Type-Options': 'nosniff',
+    };
 
-    res.end(content);
+    let body = content;
+
+    if (compressibleTypes.has(ext)) {
+      headers.Vary = 'Accept-Encoding';
+
+      const encoding = pickEncoding(req.headers['accept-encoding']);
+
+      if (encoding) {
+        const cacheKey = `${filePath}:${encoding}`;
+        let compressed = compressedCache.get(cacheKey);
+
+        if (!compressed) {
+          compressed = compress(content, encoding);
+          compressedCache.set(cacheKey, compressed);
+        }
+
+        body = compressed;
+        headers['Content-Encoding'] = encoding;
+      }
+    }
+
+    headers['Content-Length'] = body.length;
+
+    res.writeHead(200, headers);
+    res.end(body);
   });
 }
 
