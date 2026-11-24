@@ -527,7 +527,7 @@ function DashboardPage() {
           <div className="flex w-full min-w-0 shrink-0 items-center gap-3 lg:w-auto">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white p-1.5 shadow-md ring-2 ring-white/80">
               <img
-                src="/logo-chua-hoi-duc.png"
+                src="/logo-chua-hoi-duc.webp"
                 alt="Logo Chùa Hội Đức"
                 className="h-full w-full rounded-full object-contain"
               />

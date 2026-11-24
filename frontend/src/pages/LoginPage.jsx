@@ -61,7 +61,7 @@ function LoginPage() {
 <div
   className="absolute inset-0 bg-[length:70%_auto] bg-center bg-no-repeat blur-lg"
   style={{
-    backgroundImage: "url('/logo-chua-hoi-duc.png')",
+    backgroundImage: "url('/logo-chua-hoi-duc.webp')",
   }}
 />
 
