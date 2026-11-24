@@ -40,6 +40,7 @@ import {
 
 import {
   enablePushNotifications,
+  getUnsupportedPushMessage,
   disablePushNotifications,
   getPushSubscriptionStatus,
 } from '../utils/pushNotification';
@@ -94,13 +95,13 @@ function DashboardPage() {
   const [pushBusy, setPushBusy] = useState(false);
   const [pushMessage, setPushMessage] = useState('');
 
-  // Tự ẩn thông báo trạng thái Push sau 3 giây
+  // Tự ẩn thông báo trạng thái Push (thông báo dài thì giữ lâu hơn để đọc kịp)
   useEffect(() => {
     if (!pushMessage) return;
 
     const timeoutId = setTimeout(() => {
       setPushMessage('');
-    }, 3000);
+    }, pushMessage.length > 60 ? 10000 : 3000);
 
     return () => clearTimeout(timeoutId);
   }, [pushMessage]);
@@ -190,6 +191,12 @@ function DashboardPage() {
   // Bật hoặc tắt Push Notification
   const handleTogglePush = async () => {
     if (pushBusy) return;
+
+    // Trình duyệt chưa hỗ trợ Push: giải thích lý do thay vì im lặng
+    if (!pushSupported) {
+      setPushMessage(getUnsupportedPushMessage());
+      return;
+    }
 
     setPushBusy(true);
     setPushMessage('');
@@ -776,7 +783,7 @@ function DashboardPage() {
                 <button
                   type="button"
                   onClick={handleTogglePush}
-                  disabled={!pushSupported || pushBusy}
+                  disabled={pushBusy}
                   className={`group flex h-10 w-10 shrink-0 items-center justify-center
                               rounded-lg border shadow-sm
                               transition-all duration-200 ease-out
@@ -787,7 +794,8 @@ function DashboardPage() {
                                   ? 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100'
                                   : 'border-amber-300 bg-white text-[#7c3a0a] hover:bg-amber-50'
                               }
-                              disabled:cursor-not-allowed disabled:opacity-50`}
+                              disabled:cursor-not-allowed disabled:opacity-50
+                              ${pushSupported ? '' : 'opacity-60'}`}
                   aria-label={
                     pushSubscribed
                       ? 'Tắt thông báo đẩy'
