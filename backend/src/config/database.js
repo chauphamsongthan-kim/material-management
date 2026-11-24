@@ -34,14 +34,17 @@ async function testConnection() {
     console.log('📌 MySQL host:', dbRows[0].mysql_host);
 
     // Tạo bảng notifications nếu bảng chưa tồn tại
+    // Tạo bảng notifications nếu bảng chưa tồn tại
     await conn.query(`
       CREATE TABLE IF NOT EXISTS notifications (
         notification_id INT AUTO_INCREMENT PRIMARY KEY,
         recipient_id INT NOT NULL,
         device_id INT NULL,
-        borrower_name VARCHAR(100) NOT NULL,
-        device_name VARCHAR(255) NOT NULL,
-        borrowed_quantity INT NOT NULL,
+        borrower_name VARCHAR(100) NULL,
+        device_name VARCHAR(255) NULL,
+        borrowed_quantity INT NULL,
+        notification_type ENUM('BORROW', 'ADMIN') NOT NULL DEFAULT 'BORROW',
+        title VARCHAR(200) NULL,
         message VARCHAR(500) NOT NULL,
         is_read TINYINT(1) NOT NULL DEFAULT 0,
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
