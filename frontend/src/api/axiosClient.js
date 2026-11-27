@@ -29,7 +29,6 @@ axiosClient.interceptors.request.use(
 const AUTH_ENDPOINTS_WITH_OWN_401 = [
   '/auth/login',
   '/auth/change-password',
-  '/auth/email', // hủy liên kết Gmail: sai mật khẩu trả 401 nhưng không phải hết phiên
 ];
 
 let redirectingToLogin = false;

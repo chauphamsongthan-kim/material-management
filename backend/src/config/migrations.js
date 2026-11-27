@@ -23,8 +23,8 @@ async function indexExists(conn, table, indexName) {
   return rows.length > 0;
 }
 
-// Admin cấp 1/cấp 2 + Gmail khôi phục tài khoản
-async function ensureAdminLevelsAndEmail(conn) {
+// Admin cấp 1/cấp 2
+async function ensureAdminLevels(conn) {
   if (!(await columnExists(conn, 'users', 'admin_level'))) {
     await conn.query(
       `ALTER TABLE users
@@ -46,42 +46,6 @@ async function ensureAdminLevelsAndEmail(conn) {
       );
     }
   }
-
-  if (!(await columnExists(conn, 'users', 'email'))) {
-    await conn.query(
-      'ALTER TABLE users ADD COLUMN email VARCHAR(254) NULL AFTER admin_level'
-    );
-  }
-
-  if (!(await columnExists(conn, 'users', 'email_verified_at'))) {
-    await conn.query(
-      'ALTER TABLE users ADD COLUMN email_verified_at TIMESTAMP NULL AFTER email'
-    );
-  }
-
-  if (!(await indexExists(conn, 'users', 'uq_users_email'))) {
-    await conn.query(
-      'ALTER TABLE users ADD UNIQUE KEY uq_users_email (email)'
-    );
-  }
-
-  await conn.query(`
-    CREATE TABLE IF NOT EXISTS email_codes (
-      code_id INT AUTO_INCREMENT PRIMARY KEY,
-      user_id INT NOT NULL,
-      purpose ENUM('LINK_EMAIL', 'RESET_PASSWORD') NOT NULL,
-      email VARCHAR(254) NOT NULL,
-      code_hash CHAR(64) NOT NULL,
-      attempts TINYINT NOT NULL DEFAULT 0,
-      expires_at TIMESTAMP NOT NULL,
-      used_at TIMESTAMP NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      INDEX idx_email_codes_user_purpose (user_id, purpose),
-      CONSTRAINT fk_email_codes_user
-        FOREIGN KEY (user_id) REFERENCES users (user_id)
-        ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `);
 }
 
-module.exports = { ensureAdminLevelsAndEmail };
+module.exports = { ensureAdminLevels };

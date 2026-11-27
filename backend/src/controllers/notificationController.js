@@ -139,7 +139,7 @@ async function deleteNotification(req, res) {
 
 // GET /api/notifications/recipients
 // Danh sách tài khoản có thể chọn làm người nhận thông báo.
-// Chỉ trả thông tin tối thiểu (không có email, cấp Admin, mật khẩu).
+// Chỉ trả thông tin tối thiểu (không có cấp Admin, mật khẩu).
 async function getNotificationRecipients(req, res) {
   try {
     const [rows] = await pool.query(

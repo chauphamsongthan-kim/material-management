@@ -10,7 +10,6 @@ import {
   ChevronDown,
   Users,
   Send,
-  Mail,
   LoaderCircle,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -30,7 +29,6 @@ import DeviceTable from '../components/devices/DeviceTable';
 
 import AddDeviceModal from '../components/devices/AddDeviceModal';
 import ChangePasswordModal from '../components/common/ChangePasswordModal';
-import GmailLinkModal from '../components/accounts/GmailLinkModal';
 
 import {
   getNotifications,
@@ -68,7 +66,6 @@ function DashboardPage() {
   const [loadingDevices, setLoadingDevices] = useState(false);
 
   const [showAddDeviceModal, setShowAddDeviceModal] = useState(false);
-  const [showGmailModal, setShowGmailModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] =
     useState(false);
 
@@ -924,20 +921,6 @@ function DashboardPage() {
                       </button>
                     )}
 
-                    {user?.role === 'ADMIN' && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowAccountMenu(false);
-                          setShowGmailModal(true);
-                        }}
-                        className="flex w-full items-center gap-3 px-4 py-3 text-sm text-gray-700 transition hover:bg-amber-50"
-                      >
-                        <Mail size={17} className="text-gray-500" />
-                        Liên kết Gmail
-                      </button>
-                    )}
-
                     <button
                       type="button"
                       onClick={() => {
@@ -1088,10 +1071,6 @@ function DashboardPage() {
       )}
 
       {/* CHANGE PASSWORD MODAL */}
-      {showGmailModal && (
-        <GmailLinkModal onClose={() => setShowGmailModal(false)} />
-      )}
-
       {showChangePasswordModal && (
         <ChangePasswordModal
           onClose={() => setShowChangePasswordModal(false)}
