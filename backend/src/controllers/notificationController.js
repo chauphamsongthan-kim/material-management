@@ -137,6 +137,36 @@ async function deleteNotification(req, res) {
   }
 }
 
+// GET /api/notifications/recipients
+// Danh sách tài khoản có thể chọn làm người nhận thông báo.
+// Chỉ trả thông tin tối thiểu (không có email, cấp Admin, mật khẩu).
+async function getNotificationRecipients(req, res) {
+  try {
+    const [rows] = await pool.query(
+      `SELECT
+         u.user_id,
+         u.full_name,
+         u.username,
+         u.role,
+         u.department_id,
+         d.department_name
+       FROM users u
+       LEFT JOIN departments d
+         ON u.department_id = d.department_id
+       ORDER BY u.role ASC, d.department_name ASC, u.full_name ASC`
+    );
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('Lỗi tải danh sách người nhận thông báo:', err);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Không thể tải danh sách tài khoản.',
+    });
+  }
+}
+
 // POST /api/notifications
 // ADMIN gửi thông báo đến các tài khoản được chọn
 async function sendAdminNotification(req, res) {
@@ -287,4 +317,5 @@ module.exports = {
   markNotificationRead,
   deleteNotification,
   sendAdminNotification,
+  getNotificationRecipients,
 };

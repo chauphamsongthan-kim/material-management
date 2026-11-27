@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Users,
   Send,
+  Mail,
   LoaderCircle,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -23,19 +24,20 @@ import {
   searchDevices,
 } from '../api/deviceApi';
 
-import { getUsers } from '../api/userApi';
 
 import DepartmentCard from '../components/departments/DepartmentCard';
 import DeviceTable from '../components/devices/DeviceTable';
 
 import AddDeviceModal from '../components/devices/AddDeviceModal';
 import ChangePasswordModal from '../components/common/ChangePasswordModal';
+import GmailLinkModal from '../components/accounts/GmailLinkModal';
 
 import {
   getNotifications,
   markNotificationRead,
   deleteNotification,
   sendAdminNotification,
+  getNotificationRecipients,
 } from '../api/notificationApi';
 
 import {
@@ -66,6 +68,7 @@ function DashboardPage() {
   const [loadingDevices, setLoadingDevices] = useState(false);
 
   const [showAddDeviceModal, setShowAddDeviceModal] = useState(false);
+  const [showGmailModal, setShowGmailModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] =
     useState(false);
 
@@ -260,7 +263,7 @@ function DashboardPage() {
     setShowSendNotification(true);
 
     try {
-      const result = await getUsers();
+      const result = await getNotificationRecipients();
 
       if (result.success) {
         setNotificationRecipients(result.data || []);
@@ -848,7 +851,9 @@ function DashboardPage() {
                       }`
                     : user?.role === 'GUEST'
                       ? 'Quản chúng'
-                      : 'Quản trị viên'}
+                      : user?.admin_level
+                        ? `Quản trị viên cấp ${user.admin_level}`
+                        : 'Quản trị viên'}
                   </p>
 
                   <p className="text-right text-xs leading-4 text-[#7c3a0a]">
@@ -886,13 +891,15 @@ function DashboardPage() {
                           }`
                         : user?.role === 'GUEST'
                           ? 'Quản chúng'
-                          : 'Quản trị viên'}
+                          : user?.admin_level
+                            ? `Quản trị viên cấp ${user.admin_level}`
+                            : 'Quản trị viên'}
                         {' · '}
                         {user?.role}
                       </p>
                     </div>
 
-                    {user?.role === 'ADMIN' && (
+                    {user?.role === 'ADMIN' && Number(user?.admin_level) === 2 && (
                       <button
                         type="button"
                         onClick={() => {
@@ -914,6 +921,20 @@ function DashboardPage() {
                       >
                         <Send size={17} className="text-gray-500" />
                         Gửi thông báo
+                      </button>
+                    )}
+
+                    {user?.role === 'ADMIN' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAccountMenu(false);
+                          setShowGmailModal(true);
+                        }}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-sm text-gray-700 transition hover:bg-amber-50"
+                      >
+                        <Mail size={17} className="text-gray-500" />
+                        Liên kết Gmail
                       </button>
                     )}
 
@@ -1067,6 +1088,10 @@ function DashboardPage() {
       )}
 
       {/* CHANGE PASSWORD MODAL */}
+      {showGmailModal && (
+        <GmailLinkModal onClose={() => setShowGmailModal(false)} />
+      )}
+
       {showChangePasswordModal && (
         <ChangePasswordModal
           onClose={() => setShowChangePasswordModal(false)}

@@ -18,7 +18,13 @@ CREATE TABLE IF NOT EXISTS users (
   username VARCHAR(100) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   role ENUM('ADMIN', 'HEAD', 'GUEST') NOT NULL,
+  -- Chỉ có ý nghĩa với ADMIN: 2 = Admin cấp 2 (quản lý Admin), 1 = Admin cấp 1
+  admin_level TINYINT NOT NULL DEFAULT 1,
+  -- Gmail đã xác minh, dùng để khôi phục tài khoản (chỉ Admin cấp 2)
+  email VARCHAR(254) NULL,
+  email_verified_at TIMESTAMP NULL,
   department_id INT NULL,
+  UNIQUE KEY uq_users_email (email),
   CONSTRAINT fk_users_department
     FOREIGN KEY (department_id) REFERENCES departments(department_id)
     ON DELETE SET NULL
@@ -93,6 +99,22 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   UNIQUE KEY uq_push_user_endpoint (user_id, endpoint_hash),
   KEY idx_push_user_id (user_id),
   CONSTRAINT fk_push_subscriptions_user
+    FOREIGN KEY (user_id) REFERENCES users (user_id)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS email_codes (
+  code_id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  purpose ENUM('LINK_EMAIL', 'RESET_PASSWORD') NOT NULL,
+  email VARCHAR(254) NOT NULL,
+  code_hash CHAR(64) NOT NULL,
+  attempts TINYINT NOT NULL DEFAULT 0,
+  expires_at TIMESTAMP NOT NULL,
+  used_at TIMESTAMP NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_email_codes_user_purpose (user_id, purpose),
+  CONSTRAINT fk_email_codes_user
     FOREIGN KEY (user_id) REFERENCES users (user_id)
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

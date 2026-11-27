@@ -9,17 +9,17 @@ const {
 } = require('../controllers/userController');
 
 const authMiddleware = require('../middleware/authMiddleware');
-const { requireAdmin } = require('../middleware/permissionMiddleware');
+const { requireSuperAdmin } = require('../middleware/permissionMiddleware');
 
 // Tất cả API quản lý tài khoản đều yêu cầu:
 // 1. Đăng nhập
-// 2. Role ADMIN
+// 2. Admin cấp 2 (Admin cấp 1 không được quản lý tài khoản)
 
 // GET /api/users
 router.get(
   '/',
   authMiddleware,
-  requireAdmin,
+  requireSuperAdmin,
   getUsers
 );
 
@@ -27,7 +27,7 @@ router.get(
 router.post(
   '/',
   authMiddleware,
-  requireAdmin,
+  requireSuperAdmin,
   createUser
 );
 
@@ -35,7 +35,7 @@ router.post(
 router.put(
   '/:id/password',
   authMiddleware,
-  requireAdmin,
+  requireSuperAdmin,
   updateUserPassword
 );
 
@@ -43,7 +43,7 @@ router.put(
 router.delete(
   '/:id',
   authMiddleware,
-  requireAdmin,
+  requireSuperAdmin,
   deleteUser
 );
 

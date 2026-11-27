@@ -39,6 +39,7 @@ async function authMiddleware(req, res, next) {
          u.username,
          u.full_name,
          u.role,
+         u.admin_level,
          u.department_id,
          u.password_hash,
          d.department_name
@@ -69,6 +70,8 @@ async function authMiddleware(req, res, next) {
       username: user.username,
       full_name: user.full_name,
       role: user.role,
+      // Cấp Admin lấy từ DB mỗi request (chỉ có ý nghĩa với ADMIN)
+      admin_level: user.role === 'ADMIN' ? Number(user.admin_level) : null,
       department_id: user.department_id,
       department_name: user.department_name,
     };
