@@ -5,6 +5,7 @@
 
 const bcrypt = require('bcryptjs');
 const { pool } = require('../config/database');
+const { isSuperAdmin } = require('../utils/permissions');
 
 // =========================================
 // GET /api/users
@@ -19,6 +20,8 @@ async function getUsers(req, res) {
         u.full_name,
         u.username,
         u.role,
+        CASE WHEN u.role = 'ADMIN' THEN u.admin_level ELSE NULL END AS admin_level,
+        (u.email_verified_at IS NOT NULL) AS email_verified,
         u.department_id,
         d.department_name
       FROM users u
@@ -74,6 +77,14 @@ async function createUser(req, res) {
       });
     }
 
+    // Chỉ Admin cấp 2 mới được tạo tài khoản Admin (luôn là Admin cấp 1)
+    if (role === 'ADMIN' && !isSuperAdmin(req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Chỉ Admin cấp 2 mới được tạo tài khoản Admin.',
+      });
+    }
+
     // Kiểm tra độ dài mật khẩu
     if (password.length < 6) {
       return res.status(400).json({
@@ -105,19 +116,20 @@ async function createUser(req, res) {
 
       const [result] = await pool.query(
         `INSERT INTO users
-          (full_name, username, password_hash, role, department_id)
-         VALUES (?, ?, ?, 'ADMIN', NULL)`,
+          (full_name, username, password_hash, role, admin_level, department_id)
+         VALUES (?, ?, ?, 'ADMIN', 1, NULL)`,
         [full_name, username, passwordHash]
       );
 
       return res.status(201).json({
         success: true,
-        message: 'Đã tạo tài khoản ADMIN thành công.',
+        message: 'Đã tạo tài khoản Admin cấp 1 thành công.',
         data: {
           user_id: result.insertId,
           full_name,
           username,
           role: 'ADMIN',
+          admin_level: 1,
           department_id: null,
         },
       });
@@ -257,7 +269,7 @@ async function updateUserPassword(req, res) {
     }
 
     const [users] = await pool.query(
-      'SELECT user_id, username FROM users WHERE user_id = ? LIMIT 1',
+      'SELECT user_id, username, role, admin_level FROM users WHERE user_id = ? LIMIT 1',
       [userId]
     );
 
@@ -266,6 +278,24 @@ async function updateUserPassword(req, res) {
         success: false,
         message: 'Không tìm thấy tài khoản.',
       });
+    }
+
+    // Tài khoản Admin: chỉ Admin cấp 2 được đặt lại mật khẩu Admin cấp 1.
+    // Nếu không chặn, Admin cấp 1 có thể đổi mật khẩu rồi chiếm tài khoản Admin cấp 2.
+    if (users[0].role === 'ADMIN') {
+      if (Number(req.user.user_id) === userId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Hãy dùng chức năng "Đổi mật khẩu" để đổi mật khẩu của chính bạn.',
+        });
+      }
+
+      if (!isSuperAdmin(req.user) || Number(users[0].admin_level) === 2) {
+        return res.status(403).json({
+          success: false,
+          message: 'Bạn không có quyền đặt lại mật khẩu của tài khoản Admin này.',
+        });
+      }
     }
 
     const passwordHash = await bcrypt.hash(new_password, 10);
@@ -314,7 +344,7 @@ async function deleteUser(req, res) {
     }
 
     const [users] = await pool.query(
-      'SELECT user_id, username, role FROM users WHERE user_id = ? LIMIT 1',
+      'SELECT user_id, username, role, admin_level FROM users WHERE user_id = ? LIMIT 1',
       [userId]
     );
 
@@ -323,6 +353,16 @@ async function deleteUser(req, res) {
         success: false,
         message: 'Không tìm thấy tài khoản.',
       });
+    }
+
+    // Tài khoản Admin: chỉ Admin cấp 2 được xóa Admin cấp 1; không ai xóa được Admin cấp 2
+    if (users[0].role === 'ADMIN') {
+      if (!isSuperAdmin(req.user) || Number(users[0].admin_level) === 2) {
+        return res.status(403).json({
+          success: false,
+          message: 'Bạn không có quyền xóa tài khoản Admin này.',
+        });
+      }
     }
 
     await pool.query(

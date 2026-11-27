@@ -37,8 +37,8 @@ async function seed() {
     const passwordHash = await bcrypt.hash(plainPassword, 10);
 
     await pool.query(
-      `INSERT INTO users (full_name, username, password_hash, role, department_id)
-       VALUES (?, ?, ?, 'ADMIN', NULL)`,
+      `INSERT INTO users (full_name, username, password_hash, role, admin_level, department_id)
+       VALUES (?, ?, ?, 'ADMIN', 2, NULL)`,
       [fullName, username, passwordHash]
     );
 

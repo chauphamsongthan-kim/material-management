@@ -2,7 +2,7 @@
 // MIDDLEWARE: PHÂN QUYỀN ADMIN / HEAD
 // =========================================
 
-const { canManageDepartment } = require('../utils/permissions');
+const { canManageDepartment, isSuperAdmin } = require('../utils/permissions');
 
 // Chỉ cho phép ADMIN và HEAD
 function requireStaff(req, res, next) {
@@ -31,6 +31,17 @@ function requireAdmin(req, res, next) {
   });
 }
 
+// Chỉ cho phép Admin cấp 2
+function requireSuperAdmin(req, res, next) {
+  if (isSuperAdmin(req.user)) {
+    return next();
+  }
+  return res.status(403).json({
+    success: false,
+    message: 'Chỉ Admin cấp 2 mới có quyền thực hiện thao tác này.',
+  });
+}
+
 // Dùng cho route: POST /api/departments/:id/devices (Thêm thiết bị)
 // department_id lấy trực tiếp từ params.
 function requireManageDepartmentFromParams(req, res, next) {
@@ -48,6 +59,7 @@ function requireManageDepartmentFromParams(req, res, next) {
 
 module.exports = {
   requireAdmin,
+  requireSuperAdmin,
   requireStaff,
   requireManageDepartmentFromParams,
 };

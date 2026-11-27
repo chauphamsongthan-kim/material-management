@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../api/authApi';
 import { useAuth } from '../context/AuthContext';
+import ForgotPasswordForm from '../components/auth/ForgotPasswordForm';
 
 function LoginPage() {
   const { loginUser } = useAuth();
@@ -13,11 +14,14 @@ function LoginPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showForgot, setShowForgot] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     setError('');
+    setSuccessMessage('');
 
     if (!username || !password) {
       setError('Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.');
@@ -73,6 +77,18 @@ function LoginPage() {
 
         <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 shadow-2xl backdrop-blur-sm sm:p-10">
 
+          {showForgot ? (
+            <ForgotPasswordForm
+              initialUsername={username}
+              onBack={() => setShowForgot(false)}
+              onDone={(message) => {
+                setShowForgot(false);
+                setPassword('');
+                setSuccessMessage(message);
+              }}
+            />
+          ) : (
+          <>
           {/* Header */}
           <div className="mb-8 text-center">
 
@@ -87,6 +103,13 @@ function LoginPage() {
             <div className="mx-auto mt-5 h-1 w-20 rounded-full bg-amber-500" />
 
           </div>
+
+          {/* Success */}
+          {successMessage && (
+            <div className="mb-5 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+              {successMessage}
+            </div>
+          )}
 
           {/* Error */}
           {error && (
@@ -132,6 +155,20 @@ function LoginPage() {
 
             </div>
 
+            <div className="-mt-3 mb-6 text-right">
+              <button
+                type="button"
+                onClick={() => {
+                  setError('');
+                  setSuccessMessage('');
+                  setShowForgot(true);
+                }}
+                className="text-sm font-medium text-amber-600 transition hover:text-amber-700 hover:underline"
+              >
+                Quên mật khẩu?
+              </button>
+            </div>
+
             {/* Login button */}
             <button
               type="submit"
@@ -142,6 +179,8 @@ function LoginPage() {
             </button>
 
           </form>
+          </>
+          )}
 
         </div>
       </div>

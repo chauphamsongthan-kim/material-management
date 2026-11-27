@@ -22,6 +22,12 @@ export const deleteNotification = async (notificationId) => {
   return response.data;
 };
 
+// Danh sách tài khoản có thể nhận thông báo (Admin cấp 1 và cấp 2)
+export const getNotificationRecipients = async () => {
+  const response = await axiosClient.get('/notifications/recipients');
+  return response.data;
+};
+
 // ADMIN gửi thông báo đến các tài khoản được chọn
 export const sendAdminNotification = async ({
   title,

@@ -7,6 +7,7 @@ const {
   markNotificationRead,
   deleteNotification,
   sendAdminNotification,
+  getNotificationRecipients,
 } = require('../controllers/notificationController');
 
 const authMiddleware = require('../middleware/authMiddleware');
@@ -18,7 +19,16 @@ router.get('/', authMiddleware, getNotifications);
 router.patch('/:id/read', authMiddleware, markNotificationRead);
 router.delete('/:id', authMiddleware, deleteNotification);
 
-// Chỉ ADMIN được gửi thông báo đến tài khoản được chọn.
+// Danh sách tài khoản có thể nhận thông báo (Admin cấp 1 và cấp 2).
+// Dùng riêng endpoint này để Admin cấp 1 không cần quyền quản lý tài khoản.
+router.get(
+  '/recipients',
+  authMiddleware,
+  requireAdmin,
+  getNotificationRecipients
+);
+
+// Chỉ ADMIN (cấp 1 và cấp 2) được gửi thông báo đến tài khoản được chọn.
 router.post(
   '/',
   authMiddleware,

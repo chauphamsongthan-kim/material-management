@@ -86,6 +86,7 @@ async function login(req, res) {
       username: user.username,
       full_name: user.full_name,
       role: user.role,
+      admin_level: user.role === 'ADMIN' ? Number(user.admin_level) : null,
       department_id: user.department_id,
       department_name: user.department_name,
     };

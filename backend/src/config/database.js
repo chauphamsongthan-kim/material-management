@@ -4,6 +4,7 @@
 
 const mysql = require('mysql2/promise');
 require('dotenv').config();
+const { ensureAdminLevelsAndEmail } = require('./migrations');
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
@@ -54,6 +55,10 @@ async function testConnection() {
     `);
 
     console.log('✅ Đã kiểm tra/tạo bảng notifications.');
+
+    // Admin cấp 1/cấp 2, Gmail khôi phục tài khoản
+    await ensureAdminLevelsAndEmail(conn);
+    console.log('✅ Đã kiểm tra cấp Admin và cột Gmail của bảng users.');
 
     // Liệt kê các bảng sau khi kiểm tra/tạo notifications
     const [tableRows] = await conn.query('SHOW TABLES');

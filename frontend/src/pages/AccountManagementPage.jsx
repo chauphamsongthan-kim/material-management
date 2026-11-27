@@ -268,8 +268,22 @@ function AccountManagementPage() {
     }
   };
 
-  // Chỉ ADMIN được truy cập trang quản lý tài khoản
-  if (user?.role !== 'ADMIN') {
+  // Cấp của người đang đăng nhập: ưu tiên lấy từ danh sách (luôn mới nhất)
+  const myLevel =
+    Number(
+      users.find((u) => u.user_id === user?.user_id)?.admin_level ??
+        user?.admin_level
+    ) || 0;
+  const isSuperAdmin = myLevel === 2;
+
+  // Admin cấp 1 không được tạo/xóa/đặt lại mật khẩu bất kỳ Admin nào;
+  // Admin cấp 2 chỉ quản lý Admin cấp 1 (không đụng Admin cấp 2).
+  const canManageAccount = (account) =>
+    account.role !== 'ADMIN' ||
+    (isSuperAdmin && Number(account.admin_level) !== 2);
+
+  // Chỉ Admin cấp 2 được truy cập trang quản lý tài khoản
+  if (user?.role !== 'ADMIN' || !isSuperAdmin) {
     return (
       <div className="min-h-screen bg-gray-100 p-6">
         <div className="mx-auto max-w-4xl rounded-2xl bg-white p-8 text-center shadow-sm">
@@ -278,7 +292,7 @@ function AccountManagementPage() {
           </h1>
 
           <p className="mt-2 text-gray-500">
-            Chỉ ADMIN mới có quyền quản lý tài khoản.
+            Chỉ Admin cấp 2 mới có quyền quản lý tài khoản.
           </p>
 
           <button
@@ -314,7 +328,7 @@ function AccountManagementPage() {
               </h1>
 
               <p className="mt-1 text-sm text-gray-500">
-                Quản lý tài khoản ADMIN, HEAD và GUEST trong hệ thống
+                Quản lý tài khoản ADMIN (cấp 1, cấp 2), HEAD và GUEST trong hệ thống
               </p>
             </div>
           </div>
@@ -431,7 +445,9 @@ function AccountManagementPage() {
                           }`}
                         >
                           <Shield size={13} />
-                          {account.role}
+                          {account.role === 'ADMIN'
+                            ? `ADMIN • Cấp ${Number(account.admin_level) || 1}`
+                            : account.role}
                         </span>
                       </td>
 
@@ -442,7 +458,16 @@ function AccountManagementPage() {
                       </td>
 
                       <td className="px-5 py-4">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex items-center justify-end gap-2">
+                          {!canManageAccount(account) && (
+                            <span className="text-xs italic text-gray-400">
+                              {account.user_id === user?.user_id
+                                ? 'Tài khoản của bạn'
+                                : 'Chỉ Admin cấp 2 quản lý'}
+                            </span>
+                          )}
+
+                          {canManageAccount(account) && (
                           <button
                             type="button"
                             onClick={() => openPasswordModal(account)}
@@ -451,8 +476,10 @@ function AccountManagementPage() {
                             <KeyRound size={15} />
                             Đổi mật khẩu
                           </button>
+                          )}
 
-                          {account.user_id !== user?.user_id && (
+                          {canManageAccount(account) &&
+                            account.user_id !== user?.user_id && (
                             <button
                               type="button"
                               onClick={() => handleDelete(account)}
@@ -563,7 +590,9 @@ function AccountManagementPage() {
                   onChange={handleRoleChange}
                   className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
                 >
-                  <option value="ADMIN">ADMIN</option>
+                  {isSuperAdmin && (
+                    <option value="ADMIN">ADMIN cấp 1</option>
+                  )}
                   <option value="HEAD">HEAD</option>
                   <option value="GUEST">GUEST</option>
                 </select>
