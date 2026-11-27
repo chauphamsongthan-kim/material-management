@@ -24,8 +24,8 @@ function canManageDepartment(user, departmentId) {
  * Admin cấp 2: Admin gốc, DUY NHẤT một tài khoản. Là người duy nhất được vào
  * trang Quản lý tài khoản (tạo/xóa/đặt lại mật khẩu HEAD, GUEST và Admin cấp 1).
  * Không thể tạo thêm Admin cấp 2 và không thể xóa Admin cấp 2.
- * Admin cấp 1: đủ chức năng thiết bị và gửi thông báo, liên kết Gmail để tự
- * khôi phục mật khẩu, nhưng KHÔNG được quản lý tài khoản nào.
+ * Admin cấp 1: đủ chức năng thiết bị và gửi thông báo,
+ * nhưng KHÔNG được quản lý tài khoản nào.
  */
 function isSuperAdmin(user) {
   return !!user && user.role === 'ADMIN' && Number(user.admin_level) === 2;

@@ -21,7 +21,6 @@ async function getUsers(req, res) {
         u.username,
         u.role,
         CASE WHEN u.role = 'ADMIN' THEN u.admin_level ELSE NULL END AS admin_level,
-        (u.email_verified_at IS NOT NULL) AS email_verified,
         u.department_id,
         d.department_name
       FROM users u
